@@ -117,6 +117,44 @@ def calc_rho(w):
     rho = 1.0 - (N / D)
 
     print(rho)
-    return rho
+    return rho**2
 
-calc_rho(0.1)
+## Function for handling gradient descent 
+def grad_desc(max_iter, w_init):
+
+    rho_ts = np.zeros(max_iter + 1) # initialize array holding rho values at each step
+    w_ts = np.zeros(max_iter + 1) # initialize array to hold parameter values at each step (1d) 
+
+    rho_ts[0] = calc_rho(w_init) # calculating initial rho value
+    w_ts[0] = w_init # making first entry the initial parameters 
+
+    for i in range(max_iter):
+        step_size = 0.1 # start with stepsize = 0.1 arbitrarily 
+        calc_grad = jax.grad(calc_rho) # compute gradient of rho 
+        grad = calc_grad(w_ts[i]) # calculate gradient at current parameters
+
+        step = 0.1
+        shrink = 0.5
+
+        # line search for stepsize
+        while True:
+            w_trial = w_ts[i] - step * grad
+            rho_trial = calc_rho(w_trial)
+
+            if rho_trial < rho_ts[i]:
+                break
+            step *= shrink
+            if step < 1e-8:
+                w_trial = w_ts[i]
+                rho_trial = rho_ts[i]
+                break
+
+        w_ts[i + 1] = w_trial
+        rho_ts[i + 1] = rho_trial
+        print("rho", i+1, ": ", rho_ts[i+1])
+    
+    #print("rhos: ", rho_ts)
+
+    return
+
+grad_desc(max_iter = 10, w_init = 0.1)
