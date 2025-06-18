@@ -118,8 +118,8 @@ def calc_rho(w):
     ### Not sure if should multiply by nf/nc or not 
     rho = 1.0 - (N / D)
 
-    #return rho
-    return rho**2
+    return rho
+    #return rho**2
 
 ## Function for handling gradient descent 
 def grad_desc(max_iter, w_init):
@@ -141,7 +141,9 @@ def grad_desc(max_iter, w_init):
         while True:
             w_trial = w_ts[i] - step * grad
             rho_trial = calc_rho(w_trial)
-
+            if w_trial < 0: # make sure parameter gamma can't be less than 0 
+                w_trial = 0
+                break
             if rho_trial < rho_ts[i]:
                 break
             step *= shrink
@@ -155,34 +157,59 @@ def grad_desc(max_iter, w_init):
         #print("rho", i+1, ": ", rho_ts[i+1])
     
     #print("rhos: ", rho_ts)
-
+    #print("Final rho: ", rho_ts[max_iter]) # printing final rho value
+    #print("Starting gamma: ", w_init)
+    #print("Final gamma: ", w_ts[max_iter])
     # return data frame of parameters and rho values
 
-    df = pd.DataFrame({
-        'iteration': np.arange(max_iter + 1),
-        'gamma': w_ts,
-        'rho^2': rho_ts
-        })
-    
-    return df
+    #df = pd.DataFrame({
+    #    'iteration': np.arange(max_iter + 1),
+    #    'gamma': w_ts,
+    #    'rho^2': rho_ts
+    #    })
 
-df = grad_desc(max_iter = 50, w_init = 100)
+    # testing if starting parameter changes final parameter and rho value much 
 
-print(df)
+    row = pd.DataFrame({ # return single row data frame of starting gamma, final gamma, and final rho 
+        'gamma_init': [w_init],
+        'gamma_final': [w_ts[max_iter]],
+        'rho_final': [rho_ts[max_iter]]
+    })
+
+    return row
+
+#df = grad_desc(max_iter = 100, w_init = 1)
+
+#print(df)
 
 # making plot of descent of rho^2
-plt.figure(figsize = (8,5))
-plt.plot(df['iteration'], df['rho^2'], marker = 'o', linestyle = '-')
-plt.xlabel('iteration')
-plt.ylabel('rho^2')
-plt.title('Gradient Descent of rho^2 Based on RBF Kernel Parameter gamma')
-plt.show()
+# plt.figure(figsize = (8,5))
+# plt.plot(df['iteration'], df['rho^2'], marker = 'o', linestyle = '-')
+# plt.xlabel('iteration')
+# plt.ylabel('rho^2')
+# plt.title('Gradient Descent of rho^2 Based on RBF Kernel Parameter gamma')
+# plt.show()
 
 # making plot of gamma 
-plt.figure(figsize = (8,5))
-plt.plot(df['iteration'], df['gamma'], marker = 'o', linestyle = '-')
-plt.xlabel('iteration')
-plt.ylabel('gamma')
-plt.title('Gradient Descent of gamma')
-plt.show()
+# plt.figure(figsize = (8,5))
+# plt.plot(df['iteration'], df['gamma'], marker = 'o', linestyle = '-')
+# plt.xlabel('iteration')
+# plt.ylabel('gamma')
+# plt.title('Gradient Descent of gamma')
+# plt.show()
 
+## testing to see how starting gamma effects rho and ending gamma
+for i in range(5):
+    # getting random starting gamma
+    u = np.random.uniform(-3, 3) 
+    gamma_rand = 10**u
+
+    # get new row of starting gamma, ending gamma, ending rho
+    new_row = grad_desc(max_iter = 10, w_init = gamma_rand)
+
+    if i == 0:
+        df = new_row
+    else:
+        df = pd.concat([df, new_row], ignore_index=True)
+
+print(df)
