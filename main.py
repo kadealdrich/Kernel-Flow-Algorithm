@@ -134,7 +134,7 @@ def grad_desc(max_iter, w_init):
         calc_grad = jax.grad(calc_rho) # compute gradient of rho 
         grad = calc_grad(w_ts[i]) # calculate gradient at current parameters
 
-        step = 0.1 # start with stepsize = 0.1 arbitrarily
+        step = w_ts[i] * 0.5 # start with stepsize equal to half of the parameter value 
         shrink = 0.5
 
         # line search for stepsize
@@ -166,7 +166,7 @@ def grad_desc(max_iter, w_init):
     
     return df
 
-df = grad_desc(max_iter = 50, w_init = 0.1)
+df = grad_desc(max_iter = 50, w_init = 100)
 
 print(df)
 
@@ -182,6 +182,7 @@ plt.show()
 plt.figure(figsize = (8,5))
 plt.plot(df['iteration'], df['gamma'], marker = 'o', linestyle = '-')
 plt.xlabel('iteration')
-plt.ylabel('rho^2')
+plt.ylabel('gamma')
 plt.title('Gradient Descent of gamma')
 plt.show()
+
