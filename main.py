@@ -173,6 +173,7 @@ def grad_desc(max_iter, w_init):
     row = pd.DataFrame({ # return single row data frame of starting gamma, final gamma, and final rho 
         'gamma_init': [w_init],
         'gamma_final': [w_ts[max_iter]],
+        'rho_init': [rho_ts[0]],
         'rho_final': [rho_ts[max_iter]]
     })
 
@@ -199,13 +200,13 @@ def grad_desc(max_iter, w_init):
 # plt.show()
 
 ## testing to see how starting gamma effects rho and ending gamma
-for i in range(5):
+for i in range(50):
     # getting random starting gamma
     u = np.random.uniform(-3, 3) 
     gamma_rand = 10**u
 
     # get new row of starting gamma, ending gamma, ending rho
-    new_row = grad_desc(max_iter = 10, w_init = gamma_rand)
+    new_row = grad_desc(max_iter = 25, w_init = gamma_rand)
 
     if i == 0:
         df = new_row
