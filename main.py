@@ -200,7 +200,7 @@ def grad_desc(max_iter, w_init):
 # plt.show()
 
 ## testing to see how starting gamma effects rho and ending gamma
-for i in range(50):
+for i in range(200):
     # getting random starting gamma
     u = np.random.uniform(-3, 3) 
     gamma_rand = 10**u
@@ -213,4 +213,9 @@ for i in range(50):
     else:
         df = pd.concat([df, new_row], ignore_index=True)
 
-print(df)
+df.to_csv("results.csv",          # file name or full path
+          index=False,            # don’t write the row index column
+          header=True,            # keep column names (default)
+          sep=",",                # field delimiter
+          encoding="utf-8",       # text encoding
+          float_format="%.6g")    # optional numeric format
