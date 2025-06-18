@@ -4,13 +4,20 @@ import numpy as np
 
 ### File for analyizing data related to experiments with kernel flow algorithm
 
+## Data 
+
 gvr = pd.read_csv("gamma-vs-rho.csv")
+
+# variable tracking difference between final and initial gammas
+gvr['gamma_delta'] = gvr['gamma_final'] - gvr['gamma_init']
+
+# variable tracking sq diff between final and initial gammas 
+gvr['gamma_sqdelta'] = gvr['gamma_final'] - gvr['gamma_init']
 
 # variables: gamma_init, gamma_final, rho_init, rho_final
 
-# removing crazy outliers
+# df removing crazy outliers
 gvr_filt = gvr[gvr['rho_final'] >= -2]
-
 
 
 ## PLOTS
@@ -41,3 +48,4 @@ plt.xlabel('Initial gamma')
 plt.ylabel('Initial rho')
 plt.title('Initial gamma vs Inital rho')
 plt.show()
+
