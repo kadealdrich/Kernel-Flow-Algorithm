@@ -7,6 +7,8 @@ import numpy as np
 import jax
 from jax import grad, make_jaxpr
 import random
+import pandas as pd 
+import matplotlib.pyplot as plt
 
 random.seed(51)
 
@@ -116,7 +118,7 @@ def calc_rho(w):
     ### Not sure if should multiply by nf/nc or not 
     rho = 1.0 - (N / D)
 
-    print(rho)
+    #return rho
     return rho**2
 
 ## Function for handling gradient descent 
@@ -129,11 +131,10 @@ def grad_desc(max_iter, w_init):
     w_ts[0] = w_init # making first entry the initial parameters 
 
     for i in range(max_iter):
-        step_size = 0.1 # start with stepsize = 0.1 arbitrarily 
         calc_grad = jax.grad(calc_rho) # compute gradient of rho 
         grad = calc_grad(w_ts[i]) # calculate gradient at current parameters
 
-        step = 0.1
+        step = 0.1 # start with stepsize = 0.1 arbitrarily
         shrink = 0.5
 
         # line search for stepsize
@@ -151,10 +152,36 @@ def grad_desc(max_iter, w_init):
 
         w_ts[i + 1] = w_trial
         rho_ts[i + 1] = rho_trial
-        print("rho", i+1, ": ", rho_ts[i+1])
+        #print("rho", i+1, ": ", rho_ts[i+1])
     
     #print("rhos: ", rho_ts)
 
-    return
+    # return data frame of parameters and rho values
 
-grad_desc(max_iter = 10, w_init = 0.1)
+    df = pd.DataFrame({
+        'iteration': np.arange(max_iter + 1),
+        'gamma': w_ts,
+        'rho^2': rho_ts
+        })
+    
+    return df
+
+df = grad_desc(max_iter = 50, w_init = 0.1)
+
+print(df)
+
+# making plot of descent of rho^2
+plt.figure(figsize = (8,5))
+plt.plot(df['iteration'], df['rho^2'], marker = 'o', linestyle = '-')
+plt.xlabel('iteration')
+plt.ylabel('rho^2')
+plt.title('Gradient Descent of rho^2 Based on RBF Kernel Parameter gamma')
+plt.show()
+
+# making plot of gamma 
+plt.figure(figsize = (8,5))
+plt.plot(df['iteration'], df['gamma'], marker = 'o', linestyle = '-')
+plt.xlabel('iteration')
+plt.ylabel('rho^2')
+plt.title('Gradient Descent of gamma')
+plt.show()
