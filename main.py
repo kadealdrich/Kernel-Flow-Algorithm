@@ -213,7 +213,7 @@ for i in range(200):
     else:
         df = pd.concat([df, new_row], ignore_index=True)
 
-df.to_csv("results.csv",          # file name or full path
+df.to_csv("gamma-vs-rho.csv",          # file name or full path
           index=False,            # don’t write the row index column
           header=True,            # keep column names (default)
           sep=",",                # field delimiter
