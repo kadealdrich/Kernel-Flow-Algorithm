@@ -11,6 +11,8 @@ gvr = pd.read_csv("gamma-vs-rho.csv")
 # removing crazy outliers
 gvr_filt = gvr[gvr['rho_final'] >= -2]
 
+
+
 ## PLOTS
 
 # gamma init vs rho final
@@ -21,4 +23,14 @@ plt.ylabel('Final rho')
 plt.title('Initial gamma vs Final rho\n(Ignoring rho < -2)')
 plt.show()
 # seems like weird stuff really only happens when starting gamma near zero
+
+# gamma final vs rho final
+plt.figure(figsize = (8,5))
+plt.scatter(gvr_filt['gamma_final'], gvr_filt['rho_final'], marker = 'o')
+plt.xlabel('Final gamma')
+plt.ylabel('Final rho')
+plt.title('Final gamma vs Final rho\n(Ignoring rho < -2)')
+plt.show()
+# looks pretty identical to plot with initial gamma
+#   going to look at plot of differences of gamma vs differences of rho 
 
