@@ -222,15 +222,98 @@ def grad_desc(max_iter, w_init):
 #           float_format="%.6g")    # optional numeric format
 
 ## Testing if gamma is being overfit on single sample 
-gamma_test = 39.1272
-rho_test_vec = np.zeros(1000)
+# gamma_test = 39.1272
+# rho_test_vec = np.zeros(1000)
 
-for i in range (1000):
-    rho_test_vec[i] = calc_rho(gamma_test)
+# for i in range (1000):
+#     rho_test_vec[i] = calc_rho(gamma_test)
 
-# plotting results
-plt.figure()
-plt.boxplot(rho_test_vec, vert=True)
-plt.ylabel('rho(gamma = 39.1272)')
-plt.title('Box Plot of Calculated rhos for 1000 Subsamples of Data')
-plt.show()
+# # plotting results
+# plt.figure()
+# plt.boxplot(rho_test_vec, vert=True)
+# plt.ylabel('rho(gamma = 39.1272)')
+# plt.title('Box Plot of Calculated rhos for 1000 Subsamples of Data')
+# plt.show()
+
+## Kernel flow algorithm for gradient descent across multiple samples of data 
+
+# function for calculating vector of rhos for multiple samples 
+def calc_rho_vec(w):
+
+    # setting number of subsamples
+    n_subsamples = 20
+
+    # initializing array of rhos 
+    rho_vec = np.zeros(n_subsamples)
+
+    # sampling rules
+    fineProportion = 1.0 # proportion of pool to use for fine sample (default is 1)
+    coarseProportion = 0.5 # testing if coarse and samples the same, if rho = 0
+
+    for i in range(n_subsamples):
+        # sampling done within for loop
+        # getting fine sample
+        fineIndices = sorted(np.random.choice(range(totalSampleSize), size = round(totalSampleSize * fineProportion), replace = False))
+        fineSample = X_1D[fineIndices]
+
+        #print("fine indices", fineIndices)
+        #print("fine length", len(fineIndices))
+
+        # getting coarse sample
+        #coarseIndices = fineIndices
+        #coarseSample = fineSample
+        coarseIndices = sorted(np.random.choice(fineIndices, size = round(len(fineIndices) * coarseProportion), replace = False))
+        coarseSample = X_1D[coarseIndices] # get directly from total sample pool because indices are necessarily in fine sample
+        
+        # Debugging
+        #print(coarseIndices[0])
+        #print("Coarse Indices", coarseIndices)
+        #print("coarse length", len(coarseIndices))
+
+        # get correponding Y samples
+        # Y fine sample
+        Yf = Y[fineIndices]
+
+        # Y coarse sample
+        Yc = Y[coarseIndices]
+
+        ## Calculate kernel matrices using RBF kernel
+        # fine sample 
+        diffs_f = fineSample[:, None] - fineSample[None, :]
+        sqdf = diffs_f**2  # square diff matrix (nf, nf)
+        Kf = jnp.exp(-w * sqdf)
+
+        # coarse sample 
+        diffs_c = coarseSample[:, None] - coarseSample[None, :]
+        sqdc = diffs_c**2  # square diff matrix (nf, nf)
+        Kc = jnp.exp(-w * sqdc)
+
+        # Calculate rho 
+        # sizes
+        nf = len(fineIndices)
+        nc = len(coarseIndices)
+        #print("coarse ind len: ", len(coarseIndices)) debugging
+        # print(Kc.shape) So Kc is the size of the fine matrix
+        # build regularized matrices
+        Kf_reg = Kf + lam * jnp.eye(nf) 
+        Kc_reg = Kc + lam * jnp.eye(nc)
+
+        # compute (Reg)^{-1} and then its square
+        inv_f = jnp.linalg.inv(Kf_reg)
+        inv_c = jnp.linalg.inv(Kc_reg)
+
+        Kf_inv2 = inv_f @ inv_f
+        Kc_inv2 = inv_c @ inv_c
+
+        # quadratic forms
+        N = Yc.T @ (Kc @ Kc_inv2) @ Yc # numerator
+        D = Yf.T @ (Kf @ Kf_inv2) @ Yf # denominator
+
+        # final rho
+        ### Not sure if should multiply by nf/nc or not 
+        rho_vec[i] = 1.0 - (N / D)
+
+    return rho_vec
+
+rho_vec = calc_rho_vec(39.1272)
+print(rho_vec)
