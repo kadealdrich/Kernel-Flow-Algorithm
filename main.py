@@ -54,7 +54,7 @@ Y = a * X_1D**2 + b * X_1D + c + epsilon
 
 def calc_rho(w):
     # sampling done within for loop
-        
+    
     # getting fine sample
     fineProportion = 1.0 # proportion of pool to use for fine sample (default is 1)
     fineIndices = sorted(np.random.choice(range(totalSampleSize), size = round(totalSampleSize * fineProportion), replace = False))
@@ -121,130 +121,18 @@ def calc_rho(w):
     return rho
     #return rho**2
 
-## Function for handling gradient descent 
-def grad_desc(max_iter, w_init):
 
-    rho_ts = np.zeros(max_iter + 1) # initialize array holding rho values at each step
-    w_ts = np.zeros(max_iter + 1) # initialize array to hold parameter values at each step (1d) 
-
-    rho_ts[0] = calc_rho(w_init) # calculating initial rho value
-    w_ts[0] = w_init # making first entry the initial parameters 
-
-    for i in range(max_iter):
-        calc_grad = jax.grad(calc_rho) # compute gradient of rho 
-        grad = calc_grad(w_ts[i]) # calculate gradient at current parameters
-
-        step = w_ts[i] * 0.5 # start with stepsize equal to half of the parameter value 
-        shrink = 0.5
-
-        # line search for stepsize
-        while True:
-            w_trial = w_ts[i] - step * grad
-            rho_trial = calc_rho(w_trial)
-            if w_trial < 0: # make sure parameter gamma can't be less than 0 
-                w_trial = 0
-                break
-            if rho_trial < rho_ts[i]:
-                break
-            step *= shrink
-            if step < 1e-8:
-                w_trial = w_ts[i]
-                rho_trial = rho_ts[i]
-                break
-
-        w_ts[i + 1] = w_trial
-        rho_ts[i + 1] = rho_trial
-        #print("rho", i+1, ": ", rho_ts[i+1])
-    
-    #print("rhos: ", rho_ts)
-    #print("Final rho: ", rho_ts[max_iter]) # printing final rho value
-    #print("Starting gamma: ", w_init)
-    #print("Final gamma: ", w_ts[max_iter])
-    # return data frame of parameters and rho values
-
-    #df = pd.DataFrame({
-    #    'iteration': np.arange(max_iter + 1),
-    #    'gamma': w_ts,
-    #    'rho^2': rho_ts
-    #    })
-
-    # testing if starting parameter changes final parameter and rho value much 
-
-    row = pd.DataFrame({ # return single row data frame of starting gamma, final gamma, and final rho 
-        'gamma_init': [w_init],
-        'gamma_final': [w_ts[max_iter]],
-        'rho_init': [rho_ts[0]],
-        'rho_final': [rho_ts[max_iter]]
-    })
-
-    return row
-
-
-#df = grad_desc(max_iter = 100, w_init = 1)
-
-#print(df)
-
-# making plot of descent of rho^2
-# plt.figure(figsize = (8,5))
-# plt.plot(df['iteration'], df['rho^2'], marker = 'o', linestyle = '-')
-# plt.xlabel('iteration')
-# plt.ylabel('rho^2')
-# plt.title('Gradient Descent of rho^2 Based on RBF Kernel Parameter gamma')
-# plt.show()
-
-# making plot of gamma 
-# plt.figure(figsize = (8,5))
-# plt.plot(df['iteration'], df['gamma'], marker = 'o', linestyle = '-')
-# plt.xlabel('iteration')
-# plt.ylabel('gamma')
-# plt.title('Gradient Descent of gamma')
-# plt.show()
-
-## testing to see how starting gamma effects rho and ending gamma
-# for i in range(200):
-#     # getting random starting gamma
-#     u = np.random.uniform(-3, 3) 
-#     gamma_rand = 10**u
-
-#     # get new row of starting gamma, ending gamma, ending rho
-#     new_row = grad_desc(max_iter = 25, w_init = gamma_rand)
-
-#     if i == 0:
-#         df = new_row
-#     else:
-#         df = pd.concat([df, new_row], ignore_index=True)
-
-# df.to_csv("gamma-vs-rho.csv",          # file name or full path
-#           index=False,            # don’t write the row index column
-#           header=True,            # keep column names (default)
-#           sep=",",                # field delimiter
-#           encoding="utf-8",       # text encoding
-#           float_format="%.6g")    # optional numeric format
-
-## Testing if gamma is being overfit on single sample 
-# gamma_test = 39.1272
-# rho_test_vec = np.zeros(1000)
-
-# for i in range (1000):
-#     rho_test_vec[i] = calc_rho(gamma_test)
-
-# # plotting results
-# plt.figure()
-# plt.boxplot(rho_test_vec, vert=True)
-# plt.ylabel('rho(gamma = 39.1272)')
-# plt.title('Box Plot of Calculated rhos for 1000 Subsamples of Data')
-# plt.show()
-
+## Handling multiple samples 
 ## Kernel flow algorithm for gradient descent across multiple samples of data 
 
 # function for calculating vector of rhos for multiple samples 
-def calc_rho_vec(w):
+def calc_rho_avg(w):
 
     # setting number of subsamples
-    n_subsamples = 20
+    n_subsamples = 30
 
     # initializing array of rhos 
-    rho_vec = np.zeros(n_subsamples)
+    rho_vec = jnp.zeros(n_subsamples)
 
     # sampling rules
     fineProportion = 1.0 # proportion of pool to use for fine sample (default is 1)
@@ -311,9 +199,181 @@ def calc_rho_vec(w):
 
         # final rho
         ### Not sure if should multiply by nf/nc or not 
-        rho_vec[i] = 1.0 - (N / D)
+        rho = 1.0 - (N / D)
+        rho_vec = rho_vec.at[i].set(rho)
 
-    return rho_vec
+    return np.mean(rho_vec) # returns avg of vector of rhos
 
-rho_vec = calc_rho_vec(39.1272)
-print(rho_vec)
+## Gradient descent function for multiple rhos 
+def grad_desc_multi(max_iter, w_init):
+
+    rho_ts = np.zeros(max_iter + 1) # initialize array holding rho values at each step
+    w_ts = np.zeros(max_iter + 1) # initialize array to hold parameter values at each step (1d) 
+
+    rho_ts[0] = calc_rho_avg(w_init) # calculating initial rho value
+    w_ts[0] = w_init # making first entry the initial parameters 
+
+    for i in range(max_iter):
+        calc_grad = jax.grad(calc_rho_avg) # compute gradient of rho 
+        grad = calc_grad(w_ts[i]) # calculate gradient at current parameters
+
+        step = w_ts[i] * 0.5 # start with stepsize equal to half of the parameter value 
+        shrink = 0.5
+
+        # line search for stepsize
+        while True:
+            w_trial = w_ts[i] - step * grad
+            rho_trial = calc_rho_avg(w_trial)
+            if w_trial < 0: # make sure parameter gamma can't be less than 0 
+                w_trial = 0
+                break
+            if rho_trial < rho_ts[i]:
+                break
+            step *= shrink
+            if step < 1e-8:
+                w_trial = w_ts[i]
+                rho_trial = rho_ts[i]
+                break
+
+        w_ts[i + 1] = w_trial
+        rho_ts[i + 1] = rho_trial
+        #print("rho", i+1, ": ", rho_ts[i+1])
+    
+    #print("rhos: ", rho_ts)
+    #print("Final rho: ", rho_ts[max_iter]) # printing final rho value
+    #print("Starting gamma: ", w_init)
+    #print("Final gamma: ", w_ts[max_iter])
+    # return data frame of parameters and rho values
+
+    #df = pd.DataFrame({
+    #    'iteration': np.arange(max_iter + 1),
+    #    'gamma': w_ts,
+    #    'rho^2': rho_ts
+    #    })
+
+    # testing if starting parameter changes final parameter and rho value much 
+
+    row = pd.DataFrame({ # return single row data frame of starting gamma, final gamma, and final rho 
+        'gamma_init': [w_init],
+        'gamma_final': [w_ts[max_iter]],
+        'rho_init': [rho_ts[0]],
+        'rho_final': [rho_ts[max_iter]]
+    })
+
+    return row
+
+df = grad_desc_multi(max_iter = 20, w_init = 10)
+
+print(df)
+
+## Function for handling gradient descent 
+def grad_desc(max_iter, w_init):
+
+    rho_ts = np.zeros(max_iter + 1) # initialize array holding rho values at each step
+    w_ts = np.zeros(max_iter + 1) # initialize array to hold parameter values at each step (1d) 
+
+    rho_ts[0] = calc_rho(w_init) # calculating initial rho value
+    w_ts[0] = w_init # making first entry the initial parameters 
+
+    for i in range(max_iter):
+        calc_grad = jax.grad(calc_rho) # compute gradient of rho 
+        grad = calc_grad(w_ts[i]) # calculate gradient at current parameters
+
+        step = w_ts[i] * 0.5 # start with stepsize equal to half of the parameter value 
+        shrink = 0.5
+
+        # line search for stepsize
+        while True:
+            w_trial = w_ts[i] - step * grad
+            rho_trial = calc_rho(w_trial)
+            if w_trial < 0: # make sure parameter gamma can't be less than 0 
+                w_trial = 0
+                break
+            if rho_trial < rho_ts[i]:
+                break
+            step *= shrink
+            if step < 1e-8:
+                w_trial = w_ts[i]
+                rho_trial = rho_ts[i]
+                break
+
+        w_ts[i + 1] = w_trial
+        rho_ts[i + 1] = rho_trial
+        #print("rho", i+1, ": ", rho_ts[i+1])
+    
+    #print("rhos: ", rho_ts)
+    #print("Final rho: ", rho_ts[max_iter]) # printing final rho value
+    #print("Starting gamma: ", w_init)
+    #print("Final gamma: ", w_ts[max_iter])
+    # return data frame of parameters and rho values
+
+    #df = pd.DataFrame({
+    #    'iteration': np.arange(max_iter + 1),
+    #    'gamma': w_ts,
+    #    'rho^2': rho_ts
+    #    })
+
+    # testing if starting parameter changes final parameter and rho value much 
+
+    row = pd.DataFrame({ # return single row data frame of starting gamma, final gamma, and final rho 
+        'gamma_init': [w_init],
+        'gamma_final': [w_ts[max_iter]],
+        'rho_init': [rho_ts[0]],
+        'rho_final': [rho_ts[max_iter]]
+    })
+
+    return row
+
+
+# making plot of descent of rho^2
+# plt.figure(figsize = (8,5))
+# plt.plot(df['iteration'], df['rho^2'], marker = 'o', linestyle = '-')
+# plt.xlabel('iteration')
+# plt.ylabel('rho^2')
+# plt.title('Gradient Descent of rho^2 Based on RBF Kernel Parameter gamma')
+# plt.show()
+
+# making plot of gamma 
+# plt.figure(figsize = (8,5))
+# plt.plot(df['iteration'], df['gamma'], marker = 'o', linestyle = '-')
+# plt.xlabel('iteration')
+# plt.ylabel('gamma')
+# plt.title('Gradient Descent of gamma')
+# plt.show()
+
+## testing to see how starting gamma effects rho and ending gamma
+# for i in range(200):
+#     # getting random starting gamma
+#     u = np.random.uniform(-3, 3) 
+#     gamma_rand = 10**u
+
+#     # get new row of starting gamma, ending gamma, ending rho
+#     new_row = grad_desc(max_iter = 25, w_init = gamma_rand)
+
+#     if i == 0:
+#         df = new_row
+#     else:
+#         df = pd.concat([df, new_row], ignore_index=True)
+
+# df.to_csv("gamma-vs-rho.csv",          # file name or full path
+#           index=False,            # don’t write the row index column
+#           header=True,            # keep column names (default)
+#           sep=",",                # field delimiter
+#           encoding="utf-8",       # text encoding
+#           float_format="%.6g")    # optional numeric format
+
+## Testing if gamma is being overfit on single sample 
+# gamma_test = 39.1272
+# rho_test_vec = np.zeros(1000)
+
+# for i in range (1000):
+#     rho_test_vec[i] = calc_rho(gamma_test)
+
+# # plotting results
+# plt.figure()
+# plt.boxplot(rho_test_vec, vert=True)
+# plt.ylabel('rho(gamma = 39.1272)')
+# plt.title('Box Plot of Calculated rhos for 1000 Subsamples of Data')
+# plt.show()
+
+
