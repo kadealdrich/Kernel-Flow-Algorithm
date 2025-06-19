@@ -179,6 +179,7 @@ def grad_desc(max_iter, w_init):
 
     return row
 
+
 #df = grad_desc(max_iter = 100, w_init = 1)
 
 #print(df)
@@ -200,22 +201,36 @@ def grad_desc(max_iter, w_init):
 # plt.show()
 
 ## testing to see how starting gamma effects rho and ending gamma
-for i in range(200):
-    # getting random starting gamma
-    u = np.random.uniform(-3, 3) 
-    gamma_rand = 10**u
+# for i in range(200):
+#     # getting random starting gamma
+#     u = np.random.uniform(-3, 3) 
+#     gamma_rand = 10**u
 
-    # get new row of starting gamma, ending gamma, ending rho
-    new_row = grad_desc(max_iter = 25, w_init = gamma_rand)
+#     # get new row of starting gamma, ending gamma, ending rho
+#     new_row = grad_desc(max_iter = 25, w_init = gamma_rand)
 
-    if i == 0:
-        df = new_row
-    else:
-        df = pd.concat([df, new_row], ignore_index=True)
+#     if i == 0:
+#         df = new_row
+#     else:
+#         df = pd.concat([df, new_row], ignore_index=True)
 
-df.to_csv("gamma-vs-rho.csv",          # file name or full path
-          index=False,            # don’t write the row index column
-          header=True,            # keep column names (default)
-          sep=",",                # field delimiter
-          encoding="utf-8",       # text encoding
-          float_format="%.6g")    # optional numeric format
+# df.to_csv("gamma-vs-rho.csv",          # file name or full path
+#           index=False,            # don’t write the row index column
+#           header=True,            # keep column names (default)
+#           sep=",",                # field delimiter
+#           encoding="utf-8",       # text encoding
+#           float_format="%.6g")    # optional numeric format
+
+## Testing if gamma is being overfit on single sample 
+gamma_test = 39.1272
+rho_test_vec = np.zeros(1000)
+
+for i in range (1000):
+    rho_test_vec[i] = calc_rho(gamma_test)
+
+# plotting results
+plt.figure()
+plt.boxplot(rho_test_vec, vert=True)
+plt.ylabel('rho(gamma = 39.1272)')
+plt.title('Box Plot of Calculated rhos for 1000 Subsamples of Data')
+plt.show()
