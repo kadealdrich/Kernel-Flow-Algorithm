@@ -29,6 +29,6 @@ This repository holds work related to the internship/master's thesis of Kade Ald
 
 5. Study convergence by drawing pictures
 
-> Check the prediction mean squared error of hte regression using the kernel parameters output at each iteration to check the change in performance. Compare with a naively chosen kernel and one picked through cross-validation. 
+> Check the prediction mean squared error of the regression using the kernel parameters output at each iteration to check the change in performance. Compare with a naively chosen kernel and one picked through cross-validation. 
 
 6. Check if degeneracy phenomena occur 
