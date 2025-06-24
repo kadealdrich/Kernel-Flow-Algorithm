@@ -29,4 +29,4 @@ This repository holds work related to the internship/master's thesis of Kade Ald
 
 5. Study convergence by drawing pictures
 
-6. Check if degerneracy phenomena occur 
+6. Check if degeneracy phenomena occur 
