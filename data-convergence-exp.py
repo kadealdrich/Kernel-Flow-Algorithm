@@ -2,6 +2,7 @@ import random as rd
 import numpy as np
 import math 
 import matplotlib.pyplot as plt
+import pandas as pd
 np.random.seed(51)
 
 ### Script for constructing data for KF experiments
@@ -38,3 +39,17 @@ plt.ylabel("rough y (true)")
 plt.title("Test")
 plt.grid(True)
 plt.show()
+
+# exporting as csv
+data = pd.DataFrame({
+    "x":             x,
+    "y_smooth_true": y_smooth_true,
+    "y_smooth":      y_smooth,
+    "y_hfreq_true":  y_hfreq_true,
+    "y_hfreq":       y_hfreq,
+    "y_bump_true":   y_bump_true,
+    "y_bump":        y_bump,
+    "y_rough_true":  y_rough_true,
+    "y_rough":       y_rough,
+})
+#data.to_csv("kf_experiment_data.csv", index=False)
