@@ -32,13 +32,13 @@ y_rough_true = abs(x)
 y_rough = y_rough_true + epsilon
 
 # plotting functions 
-plt.figure()
-plt.plot(x, y_hfreq_true, linestyle='-')
-plt.xlabel("x")
-plt.ylabel("rough y (true)")
-plt.title("Test")
-plt.grid(True)
-plt.show()
+#plt.figure()
+#plt.plot(x, y_hfreq_true, linestyle='-')
+#plt.xlabel("x")
+#plt.ylabel("rough y (true)")
+#plt.title("Test")
+#plt.grid(True)
+#plt.show()
 
 # exporting as csv
 data = pd.DataFrame({
@@ -52,4 +52,4 @@ data = pd.DataFrame({
     "y_rough_true":  y_rough_true,
     "y_rough":       y_rough,
 })
-#data.to_csv("kf_experiment_data.csv", index=False)
+data.to_csv("kf_experiment_data.csv", index=False)

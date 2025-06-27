@@ -27,8 +27,8 @@ lam = 0.1
 
 # starting with 1 dimensional input data 
 # generating x's from N(0,1)
-totalSampleSize = 200
-X_1D = np.random.normal(loc = 0, scale = 1, size = totalSampleSize)
+#totalSampleSize = 200
+#X_1D = np.random.normal(loc = 0, scale = 1, size = totalSampleSize)
 
 # creating output data 
 # Y is quadratically related to X
@@ -38,10 +38,29 @@ b = -1.0
 c = 0.5
 
 # Noise is N(0,1)
-epsilon = np.random.normal(loc = 0.0, scale = 1, size = X_1D.shape)
+#epsilon = np.random.normal(loc = 0.0, scale = 1, size = X_1D.shape)
 
 # calculate Y vector
-Y = a * X_1D**2 + b * X_1D + c + epsilon
+#Y = a * X_1D**2 + b * X_1D + c + epsilon
+
+
+######## Option for importing a csv #########
+# Loading in experiment data
+
+df_experiment = pd.read_csv("kf_experiment_data.csv")
+## columns (in order)
+# x
+# y_smooth_true
+# y_smooth
+# y_hfreq_true
+# y_hfreq
+# y_bump_true
+# y_bump
+# y_rough_true
+# y_rough
+
+X_1D = df_experiment['x']
+Y = df_experiment['smooth']
 
 #######################################################################
 
@@ -375,5 +394,4 @@ def grad_desc(max_iter, w_init):
 # plt.ylabel('rho(gamma = 39.1272)')
 # plt.title('Box Plot of Calculated rhos for 1000 Subsamples of Data')
 # plt.show()
-
 
