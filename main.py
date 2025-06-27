@@ -60,8 +60,10 @@ df_experiment = pd.read_csv("kf_experiment_data.csv")
 # y_rough
 
 X_1D = df_experiment['x']
-Y = df_experiment['smooth']
-
+Y = df_experiment['smooth'] # take 'column' from above as appropriate
+tv = max(Y) - min(Y) # calculate total variation for constructing error term
+epsilon = np.random.normal(0, 0.05 * tv, size = len(Y))
+Y += epsilon
 #######################################################################
 
 
