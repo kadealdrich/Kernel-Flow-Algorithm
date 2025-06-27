@@ -9,7 +9,7 @@ np.random.seed(51)
 
 # x's are sampled randomly from a uniform[-3,3] distribution 
 n = 1000
-x = np.random.uniform(-3.0, 3.0, size = n)
+x = np.random.uniform(-1.0, 1.0, size = n)
 x = np.sort(x)
 
 # random error term of ~2% total variation
@@ -33,7 +33,7 @@ y_rough = y_rough_true + epsilon
 
 # plotting functions 
 plt.figure()
-plt.plot(x, y_smooth, linestyle='-')
+plt.plot(x, y_hfreq_true, linestyle='-')
 plt.xlabel("x")
 plt.ylabel("rough y (true)")
 plt.title("Test")
