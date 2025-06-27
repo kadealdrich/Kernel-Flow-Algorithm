@@ -59,6 +59,7 @@ df_experiment = pd.read_csv("kf_experiment_data.csv")
 # y_rough_true
 # y_rough
 
+totalSampleSize = len(df_experiment['x']) # have to set totalsamplesize for rho calculation function
 X_1D = df_experiment['x']
 Y = df_experiment['smooth'] # take 'column' from above as appropriate
 tv = max(Y) - min(Y) # calculate total variation for constructing error term
