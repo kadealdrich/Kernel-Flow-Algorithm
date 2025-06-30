@@ -85,6 +85,10 @@ def _sample_indices(key_size, proportion):
 # make data globally accessible so that it doesn't have to be passed in
 # define kernel matrices as a function of w
 
+# vectors for holding condition values of Kf and Kc matrices for testing
+Kf_conds = np.zeros(shape = 1000)
+Kc_conds = np.zeros(shape = 1000)
+
 def calc_rho(w):
     # sampling done within for loop
     
@@ -141,6 +145,8 @@ def calc_rho(w):
     # Checking condition of matrix (>>1 means numerical instability likely)
     #print("Kf condition = ", np.linalg.cond(Kf_reg))
     #print("Kc condition = ", np.linalg.cond(Kc_reg))
+    Kf_cond = np.linalg.cond(Kf_reg)
+    Kc_cond = np.linalg.cond(Kc_reg)
 
     # compute (Reg)^{-1} and then its square
     inv_f = jnp.linalg.inv(Kf_reg)
@@ -157,8 +163,7 @@ def calc_rho(w):
     ### Not sure if should multiply by nf/nc or not 
     rho = 1.0 - (N / D)
 
-    return rho
-    #return rho**2
+    return rho, Kf_cond, Kc_cond
 
 
 ## Handling multiple samples 
@@ -425,23 +430,26 @@ def grad_desc(max_iter, w_init):
 #print(calc_rho(30))
 
 # graphing rho vs lambda for fixed gamma
-rhos = np.zeros(shape = 1000)
-lambdas = np.arange(1000) 
+#rhos = np.zeros(shape = 1000)
+#lambdas = np.arange(1000) 
 
-for i in range(len(rhos)):
-    lam = lambdas[i]
-    rhos[i] = calc_rho(10)
+#for i in range(len(rhos)):
+#    lam = lambdas[i] + 1
+#    rhos[i], Kf_conds[i], Kc_conds[i] = calc_rho(10)
 
-plt.plot(lambdas, rhos)
-plt.xlabel('lambda')        
-plt.ylabel('rho')           
-plt.title('rho vs lambda')
-plt.grid(True)             # optional: adds a grid
-plt.show()
+#plt.plot(lambdas, rhos)
+#plt.xlabel('lambda')        
+#plt.ylabel('rho')           
+#plt.title('rho vs lambda')
+#plt.grid(True)             # optional: adds a grid
+#plt.show()
 
+# getting data and exporting as csv 
+#lambda_tuning_for_gram_stability = pd.DataFrame({ # return single row data frame of starting gamma, final gamma, and final rho 
+#    'lambda': [lambdas],
+#    'rho': [rhos],
+#    'Kf_cond': [Kf_conds],
+#    'Kc_conds': [Kc_conds],
+#})
 
-
-row = pd.DataFrame({ # return single row data frame of starting gamma, final gamma, and final rho 
-    'lambda': [lambdas],
-    'rho': [rhos],
-})
+#lambda_tuning_for_gram_stability.to_csv("lambda_tuning_for_gram_stability.csv", index=False)
