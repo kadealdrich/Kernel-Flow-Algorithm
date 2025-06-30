@@ -60,13 +60,24 @@ df_experiment = pd.read_csv("kf_experiment_data.csv")
 # y_rough
 
 totalSampleSize = len(df_experiment['x']) # have to set totalsamplesize for rho calculation function
-X_1D = df_experiment['x']
-Y = df_experiment['smooth'] # take 'column' from above as appropriate
+#X_1D = df_experiment['x']
+#Y = df_experiment['y_smooth'] # take 'column' from above as appropriate
+
+X_1D = jnp.asarray(df_experiment['x'].to_numpy(), dtype=jnp.float32)
+Y = jnp.asarray(df_experiment['y_smooth'].to_numpy(), dtype=jnp.float32)
+
 tv = max(Y) - min(Y) # calculate total variation for constructing error term
 epsilon = np.random.normal(0, 0.05 * tv, size = len(Y))
 Y += epsilon
 #######################################################################
 
+# function for getting sample indices 
+def _sample_indices(key_size, proportion):
+    #Return a 1-D NumPy array of unique sorted indices
+    n = round(key_size * proportion)
+    return np.sort(
+        np.random.choice(key_size, size=n, replace=False)
+    ).astype(np.int32)
 
 ## Function for calculating rho
 # Needs to only take kernel parameters w as an input
@@ -79,7 +90,8 @@ def calc_rho(w):
     
     # getting fine sample
     fineProportion = 1.0 # proportion of pool to use for fine sample (default is 1)
-    fineIndices = sorted(np.random.choice(range(totalSampleSize), size = round(totalSampleSize * fineProportion), replace = False))
+    #fineIndices = jnp.asarray(np.random.choice(range(totalSampleSize), size = round(totalSampleSize * fineProportion), replace = False))
+    fineIndices   = _sample_indices(totalSampleSize, fineProportion)
     fineSample = X_1D[fineIndices]
 
     #print("fine indices", fineIndices)
@@ -89,7 +101,8 @@ def calc_rho(w):
     coarseProportion = 0.5 # testing if coarse and samples the same, if rho = 0
     #coarseIndices = fineIndices
     #coarseSample = fineSample
-    coarseIndices = sorted(np.random.choice(fineIndices, size = round(len(fineIndices) * coarseProportion), replace = False))
+    #coarseIndices = np.random.choice(fineIndices, size = round(len(fineIndices) * coarseProportion), replace = False)
+    coarseIndices = _sample_indices(len(fineIndices), coarseProportion)
     coarseSample = X_1D[coarseIndices] # get directly from total sample pool because indices are necessarily in fine sample
     
     # Debugging
@@ -124,6 +137,10 @@ def calc_rho(w):
     # build regularized matrices
     Kf_reg = Kf + lam * jnp.eye(nf) 
     Kc_reg = Kc + lam * jnp.eye(nc)
+
+    # Checking condition of matrix (>>1 means numerical instability likely)
+    #print("Kf condition = ", np.linalg.cond(Kf_reg))
+    #print("Kc condition = ", np.linalg.cond(Kc_reg))
 
     # compute (Reg)^{-1} and then its square
     inv_f = jnp.linalg.inv(Kf_reg)
@@ -163,7 +180,8 @@ def calc_rho_avg(w):
     for i in range(n_subsamples):
         # sampling done within for loop
         # getting fine sample
-        fineIndices = sorted(np.random.choice(range(totalSampleSize), size = round(totalSampleSize * fineProportion), replace = False))
+        #fineIndices = np.random.choice(range(totalSampleSize), size = round(totalSampleSize * fineProportion), replace = False)
+        fineIndices   = _sample_indices(totalSampleSize, fineProportion)
         fineSample = X_1D[fineIndices]
 
         #print("fine indices", fineIndices)
@@ -172,7 +190,8 @@ def calc_rho_avg(w):
         # getting coarse sample
         #coarseIndices = fineIndices
         #coarseSample = fineSample
-        coarseIndices = sorted(np.random.choice(fineIndices, size = round(len(fineIndices) * coarseProportion), replace = False))
+        #coarseIndices = np.random.choice(fineIndices, size = round(len(fineIndices) * coarseProportion), replace = False)
+        coarseIndices = _sample_indices(len(fineIndices), coarseProportion)
         coarseSample = X_1D[coarseIndices] # get directly from total sample pool because indices are necessarily in fine sample
         
         # Debugging
@@ -284,9 +303,9 @@ def grad_desc_multi(max_iter, w_init):
 
     return row
 
-df = grad_desc_multi(max_iter = 20, w_init = 10)
+#df = grad_desc_multi(max_iter = 20, w_init = 10)
 
-print(df)
+#print(df)
 
 ## Function for handling gradient descent 
 def grad_desc(max_iter, w_init):
@@ -398,3 +417,31 @@ def grad_desc(max_iter, w_init):
 # plt.title('Box Plot of Calculated rhos for 1000 Subsamples of Data')
 # plt.show()
 
+
+
+###############################
+# Experimenting
+
+#print(calc_rho(30))
+
+# graphing rho vs lambda for fixed gamma
+rhos = np.zeros(shape = 1000)
+lambdas = np.arange(1000) 
+
+for i in range(len(rhos)):
+    lam = lambdas[i]
+    rhos[i] = calc_rho(10)
+
+plt.plot(lambdas, rhos)
+plt.xlabel('lambda')        
+plt.ylabel('rho')           
+plt.title('rho vs lambda')
+plt.grid(True)             # optional: adds a grid
+plt.show()
+
+
+
+row = pd.DataFrame({ # return single row data frame of starting gamma, final gamma, and final rho 
+    'lambda': [lambdas],
+    'rho': [rhos],
+})

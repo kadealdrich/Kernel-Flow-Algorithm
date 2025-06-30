@@ -13,7 +13,7 @@ x = np.random.uniform(-1.0, 1.0, size = n)
 x = np.sort(x)
 
 # random error term of ~2% total variation
-epsilon = np.random.normal(-0.04, 0.04, size = n)
+epsilon = np.random.normal(0, 0.04, size = n)
 
 # smooth y 
 y_smooth_true = np.cos(0.5*math.pi + 0.5* math.pi * x)
