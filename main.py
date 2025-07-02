@@ -14,7 +14,7 @@ random.seed(51)
 
 #######################################################################
 ## Parameters of Interest
-lam = 0.1
+lam = 200
 
 #######################################################################
 
@@ -145,8 +145,8 @@ def calc_rho(w):
     # Checking condition of matrix (>>1 means numerical instability likely)
     #print("Kf condition = ", np.linalg.cond(Kf_reg))
     #print("Kc condition = ", np.linalg.cond(Kc_reg))
-    Kf_cond = np.linalg.cond(Kf_reg)
-    Kc_cond = np.linalg.cond(Kc_reg)
+    #Kf_cond = np.linalg.cond(Kf_reg)
+    #Kc_cond = np.linalg.cond(Kc_reg)
 
     # compute (Reg)^{-1} and then its square
     inv_f = jnp.linalg.inv(Kf_reg)
@@ -162,8 +162,9 @@ def calc_rho(w):
     # final rho
     ### Not sure if should multiply by nf/nc or not 
     rho = 1.0 - (N / D)
+    #print("rho=", rho, ", w=", w)
 
-    return rho, Kf_cond, Kc_cond
+    return rho
 
 
 ## Handling multiple samples 
@@ -312,8 +313,8 @@ def grad_desc_multi(max_iter, w_init):
 
 #print(df)
 
-## Function for handling gradient descent 
-def grad_desc(max_iter, w_init):
+## Function for handling gradient descent with Line Search for step size 
+def grad_desc_ls(max_iter, w_init):
 
     rho_ts = np.zeros(max_iter + 1) # initialize array holding rho values at each step
     w_ts = np.zeros(max_iter + 1) # initialize array to hold parameter values at each step (1d) 
@@ -342,7 +343,7 @@ def grad_desc(max_iter, w_init):
                 w_trial = w_ts[i]
                 rho_trial = rho_ts[i]
                 break
-
+        print("rho= ", rho_trial)
         w_ts[i + 1] = w_trial
         rho_ts[i + 1] = rho_trial
         #print("rho", i+1, ": ", rho_ts[i+1])
@@ -353,22 +354,64 @@ def grad_desc(max_iter, w_init):
     #print("Final gamma: ", w_ts[max_iter])
     # return data frame of parameters and rho values
 
-    #df = pd.DataFrame({
-    #    'iteration': np.arange(max_iter + 1),
-    #    'gamma': w_ts,
-    #    'rho^2': rho_ts
-    #    })
+    df = pd.DataFrame({
+        'iteration': np.arange(max_iter + 1),
+        'gamma': w_ts,
+        'rho': rho_ts
+        })
+
+    return df
+
+# Gradient descent function with fixed step size
+def grad_desc_fs(max_iter, w_init):
+
+    rho_ts = np.zeros(max_iter + 1) # initialize array holding rho values at each step
+    w_ts = np.zeros(max_iter + 1) # initialize array to hold parameter values at each step (1d) 
+
+    rho_ts[0] = calc_rho(w_init) # calculating initial rho value
+    w_ts[0] = w_init # making first entry the initial parameters 
+
+    for i in range(max_iter):
+        calc_grad = jax.grad(calc_rho) # compute gradient of rho 
+        grad = calc_grad(w_ts[i]) # calculate gradient at current parameters
+
+        step = 0.05 # fixed step size 
+
+        # calculate new parameter value using fixed step size 
+        new_w = w_ts[i] - step * grad
+        new_rho = calc_rho(new_w)
+
+        rho_ts[i + 1] = new_rho
+        w_ts[i + 1] = new_w
+
+        #print("rho= ", new_rho)
+        #print("rho", i+1, ": ", rho_ts[i+1])
+    
+    #print("rhos: ", rho_ts)
+    #print("Final rho: ", rho_ts[max_iter]) # printing final rho value
+    #print("Starting gamma: ", w_init)
+    #print("Final gamma: ", w_ts[max_iter])
+    # return data frame of parameters and rho values
+
+    df = pd.DataFrame({
+        'iteration': np.arange(max_iter + 1),
+        'gamma': w_ts,
+        'rho': rho_ts
+        })
+
+    return df
 
     # testing if starting parameter changes final parameter and rho value much 
 
-    row = pd.DataFrame({ # return single row data frame of starting gamma, final gamma, and final rho 
-        'gamma_init': [w_init],
-        'gamma_final': [w_ts[max_iter]],
-        'rho_init': [rho_ts[0]],
-        'rho_final': [rho_ts[max_iter]]
-    })
+    # use for outputting only initial and final values of grad desc
+    #row = pd.DataFrame({ # return single row data frame of starting gamma, final gamma, and final rho 
+    #    'gamma_init': [w_init],
+    #    'gamma_final': [w_ts[max_iter]],
+    #    'rho_init': [rho_ts[0]],
+    #    'rho_final': [rho_ts[max_iter]]
+    #})
 
-    return row
+    #return row
 
 
 # making plot of descent of rho^2
@@ -431,10 +474,10 @@ def grad_desc(max_iter, w_init):
 
 # graphing rho vs lambda for fixed gamma
 #rhos = np.zeros(shape = 1000)
-#lambdas = np.arange(1000) 
+#lambdas = np.arange(1000) + 1
 
 #for i in range(len(rhos)):
-#    lam = lambdas[i] + 1
+#    lam = lambdas[i] 
 #    rhos[i], Kf_conds[i], Kc_conds[i] = calc_rho(10)
 
 #plt.plot(lambdas, rhos)
@@ -446,10 +489,19 @@ def grad_desc(max_iter, w_init):
 
 # getting data and exporting as csv 
 #lambda_tuning_for_gram_stability = pd.DataFrame({ # return single row data frame of starting gamma, final gamma, and final rho 
-#    'lambda': [lambdas],
-#    'rho': [rhos],
-#    'Kf_cond': [Kf_conds],
-#    'Kc_conds': [Kc_conds],
+#    'lambda': lambdas,
+#    'rho': rhos,
+#    'Kf_cond': Kf_conds,
+#    'Kc_conds': Kc_conds,
 #})
 
 #lambda_tuning_for_gram_stability.to_csv("lambda_tuning_for_gram_stability.csv", index=False)
+################
+
+
+################
+# testing with starting gamma of 10 and lambda of 200
+# using fixed step size 
+df = grad_desc_fs(max_iter=1000, w_init=10)
+df.to_csv("Kf-result-rbf-w10-ls-inter1000.csv", index=False)
+################
