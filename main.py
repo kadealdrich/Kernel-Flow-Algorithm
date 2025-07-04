@@ -14,8 +14,7 @@ random.seed(51)
 
 #######################################################################
 ## Parameters of Interest
-lam = 200
-
+lam = 200 # ridge penalty (0 = no penalty, +inf = OLS)
 #######################################################################
 
 
@@ -33,9 +32,9 @@ lam = 200
 # creating output data 
 # Y is quadratically related to X
 
-a = 2.0
-b = -1.0
-c = 0.5
+#a = 2.0
+#b = -1.0
+#c = 0.5
 
 # Noise is N(0,1)
 #epsilon = np.random.normal(loc = 0.0, scale = 1, size = X_1D.shape)
@@ -375,7 +374,7 @@ def grad_desc_fs(max_iter, w_init):
         calc_grad = jax.grad(calc_rho) # compute gradient of rho 
         grad = calc_grad(w_ts[i]) # calculate gradient at current parameters
 
-        step = 0.05 # fixed step size 
+        step = 0.2 # fixed step size 
 
         # calculate new parameter value using fixed step size 
         new_w = w_ts[i] - step * grad
@@ -384,7 +383,7 @@ def grad_desc_fs(max_iter, w_init):
         rho_ts[i + 1] = new_rho
         w_ts[i + 1] = new_w
 
-        #print("rho= ", new_rho)
+        print(i, ": rho= ", new_rho)
         #print("rho", i+1, ": ", rho_ts[i+1])
     
     #print("rhos: ", rho_ts)
@@ -502,6 +501,46 @@ def grad_desc_fs(max_iter, w_init):
 ################
 # testing with starting gamma of 10 and lambda of 200
 # using fixed step size 
-df = grad_desc_fs(max_iter=1000, w_init=10)
-df.to_csv("Kf-result-rbf-w10-ls-inter1000.csv", index=False)
+#df = grad_desc_fs(max_iter=1000, w_init=10)
+#df.to_csv("Kf-result-rbf-w10-fs2-iter1000.csv", index=False)
+################
+
+################
+# testing a few different starting gamma 
+#test_gamma = np.array([0.2, 0.5, 0.75, 1, 2, 5, 8, 12, 15, 20, 50, 100, 500, 1000])
+#rho = np.zeros(len(test_gamma))
+
+#for i in range(len(test_gamma)):
+#    new_rho = calc_rho(test_gamma[i])
+#    print("gamma: ", test_gamma[i], "rho: ", new_rho)
+#    rho[i] = new_rho
+
+#init_w_test_smooth = pd.DataFrame({
+#    'gamma': test_gamma,
+#    'rho': rho,
+#})
+#init_w_test_smooth.to_csv("init-w-test-smooth.csv", index=False)
+################
+
+################
+# testing many starting gamma
+# multiple trials to account for random point selection 
+# to be used in graph in latex later 
+# generate gamma values from 0.2 to 50.0 inclusive, step 0.1
+
+gammas = np.arange(0.2, 50.0 + 1e-8, 0.1)
+
+# prepare a results DataFrame
+results = pd.DataFrame({'gamma': gammas})
+
+# run 5 trials
+for trial in range(1, 6):
+    rho_vals = []
+    for g in gammas:
+        rho_vals.append(calc_rho(g))
+    results[f'rho_trial_{trial}'] = rho_vals
+    print(f"Completed trial {trial}")
+
+# export to CSV
+results.to_csv("init-w-test-smooth.csv", index=False)
 ################
