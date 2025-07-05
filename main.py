@@ -63,11 +63,11 @@ totalSampleSize = len(df_experiment['x']) # have to set totalsamplesize for rho 
 #Y = df_experiment['y_smooth'] # take 'column' from above as appropriate
 
 X_1D = jnp.asarray(df_experiment['x'].to_numpy(), dtype=jnp.float32)
-Y = jnp.asarray(df_experiment['y_smooth'].to_numpy(), dtype=jnp.float32)
+Y = jnp.asarray(df_experiment['y_rough_true'].to_numpy(), dtype=jnp.float32)
 
 tv = max(Y) - min(Y) # calculate total variation for constructing error term
-epsilon = np.random.normal(0, 0.05 * tv, size = len(Y))
-Y += epsilon
+#epsilon = np.random.normal(0, 0.05 * tv, size = len(Y))
+#Y += epsilon
 #######################################################################
 
 # function for getting sample indices 
@@ -528,10 +528,30 @@ def grad_desc_fs(max_iter, w_init):
 # to be used in graph in latex later 
 # generate gamma values from 0.2 to 50.0 inclusive, step 0.1
 
-gammas = np.arange(0.2, 50.0 + 1e-8, 0.1)
+#gammas = np.arange(0.0, 50.0 + 1e-8, 0.1)
+gammas = np.arange(0.01, 5.0 + 1e-8, 0.01) # more fine array of test gammas for bump function 
 
 # prepare a results DataFrame
 results = pd.DataFrame({'gamma': gammas})
+
+## tests to run:
+# init-w-test-smooth-noerror-lap.csv 
+# init-w-test-bump-noerror-lap.csv 
+# init-w-small-test-bump-noerror-lap.csv
+# init-w-test-hfreq-noerror-lap.csv
+# init-w-small-test-hfreq-noerror-lap.csv
+# init-w-test-rough-noerror-lap.csv
+# init-w-small-test-rough-noerror-lap.csv
+
+## trials done:
+# init-w-test-smooth-noerror-rbf.csv 
+# init-w-test-bump-noerror-rbf.csv 
+# init-w-small-test-bump-noerror-rbf.csv
+# init-w-test-hfreq-noerror-rbf.csv
+# init-w-small-test-hfreq-noerror-rbf.csv
+# init-w-test-rough-noerror-rbf.csv
+# init-w-small-test-rough-noerror-rbf.csv
+
 
 # run 5 trials
 for trial in range(1, 6):
@@ -542,5 +562,5 @@ for trial in range(1, 6):
     print(f"Completed trial {trial}")
 
 # export to CSV
-results.to_csv("init-w-test-smooth.csv", index=False)
+results.to_csv("init-w-small-test-rough-noerror-rbf.csv", index=False)
 ################
