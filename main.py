@@ -9,6 +9,7 @@ from jax import grad, make_jaxpr
 import random
 import pandas as pd 
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 
 random.seed(51)
 
@@ -17,7 +18,13 @@ random.seed(51)
 lam = 200 # ridge penalty (0 = no penalty, +inf = OLS)
 #######################################################################
 
-
+# function for getting sample indices 
+def _sample_indices(key_size, proportion):
+    #Return a 1-D NumPy array of unique sorted indices
+    n = round(key_size * proportion)
+    return np.sort(
+        np.random.choice(key_size, size=n, replace=False)
+    ).astype(np.int32)
 
 #######################################################################
 ## Initializing data
@@ -46,37 +53,64 @@ lam = 200 # ridge penalty (0 = no penalty, +inf = OLS)
 ######## Option for importing a csv #########
 # Loading in experiment data
 
-df_experiment = pd.read_csv("kf_experiment_data.csv")
+df_experiment = pd.read_csv("test-functions.csv")
 ## columns (in order)
 # x
-# y_smooth_true
 # y_smooth
-# y_hfreq_true
 # y_hfreq
-# y_bump_true
 # y_bump
-# y_rough_true
 # y_rough
+
+################ Specify Y ##################
+y = df_experiment['y_smooth']
+#############################################
+# loading in x for the sake of interpretibility 
+x = df_experiment['x']
+
+### Separating data 
+# using scikit learn
+
+## Training data (80% of total data)
+x_train, x_test, y_train, y_test = train_test_split(
+    x, y, # inputing original x and y from csv
+    test_size = 0.2, # 80% train, 20% test
+    random_state = 51, # setting random seed for this
+    shuffle = True # shuffling data because no time dependency
+)
+
+# plotting train data
+plt.figure()
+plt.scatter(x_train, y_train)
+plt.xlabel("x")
+plt.ylabel("y")
+plt.title("y_smooth training data (0.8 split)")
+plt.grid(False)
+plt.show()
+
+# plotting test data
+plt.figure()
+plt.scatter(x_test, y_test)
+plt.xlabel("x")
+plt.ylabel("y")
+plt.title("y_smooth testing data (0.2 split)")
+plt.grid(False)
+plt.show()
+
+
+
+# train2 (80% of training data)
+# Validation data (20% of training data)
+
+## Testing data (20% of total data)
+
 
 totalSampleSize = len(df_experiment['x']) # have to set totalsamplesize for rho calculation function
 #X_1D = df_experiment['x']
 #Y = df_experiment['y_smooth'] # take 'column' from above as appropriate
 
-X_1D = jnp.asarray(df_experiment['x'].to_numpy(), dtype=jnp.float32)
-Y = jnp.asarray(df_experiment['y_rough_true'].to_numpy(), dtype=jnp.float32)
-
-tv = max(Y) - min(Y) # calculate total variation for constructing error term
-#epsilon = np.random.normal(0, 0.05 * tv, size = len(Y))
-#Y += epsilon
+#X_1D = jnp.asarray(df_experiment['x'].to_numpy(), dtype=jnp.float32)
+#Y = jnp.asarray(df_experiment['y_rough_true'].to_numpy(), dtype=jnp.float32)
 #######################################################################
-
-# function for getting sample indices 
-def _sample_indices(key_size, proportion):
-    #Return a 1-D NumPy array of unique sorted indices
-    n = round(key_size * proportion)
-    return np.sort(
-        np.random.choice(key_size, size=n, replace=False)
-    ).astype(np.int32)
 
 ## Function for calculating rho
 # Needs to only take kernel parameters w as an input
@@ -529,10 +563,10 @@ def grad_desc_fs(max_iter, w_init):
 # generate gamma values from 0.2 to 50.0 inclusive, step 0.1
 
 #gammas = np.arange(0.0, 50.0 + 1e-8, 0.1)
-gammas = np.arange(0.01, 5.0 + 1e-8, 0.01) # more fine array of test gammas for bump function 
+#gammas = np.arange(0.01, 5.0 + 1e-8, 0.01) # more fine array of test gammas for bump function 
 
 # prepare a results DataFrame
-results = pd.DataFrame({'gamma': gammas})
+#results = pd.DataFrame({'gamma': gammas})
 
 ## tests to run:
 # init-w-test-smooth-noerror-lap.csv 
@@ -554,13 +588,13 @@ results = pd.DataFrame({'gamma': gammas})
 
 
 # run 5 trials
-for trial in range(1, 6):
-    rho_vals = []
-    for g in gammas:
-        rho_vals.append(calc_rho(g))
-    results[f'rho_trial_{trial}'] = rho_vals
-    print(f"Completed trial {trial}")
+#for trial in range(1, 6):
+#    rho_vals = []
+#    for g in gammas:
+#        rho_vals.append(calc_rho(g))
+#    results[f'rho_trial_{trial}'] = rho_vals
+#    print(f"Completed trial {trial}")
 
 # export to CSV
-results.to_csv("init-w-small-test-rough-noerror-rbf.csv", index=False)
+#results.to_csv("init-w-small-test-rough-noerror-rbf.csv", index=False)
 ################
