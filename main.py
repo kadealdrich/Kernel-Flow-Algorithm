@@ -78,38 +78,24 @@ x_train, x_test, y_train, y_test = train_test_split(
     shuffle = True # shuffling data because no time dependency
 )
 
-# plotting train data
-plt.figure()
-plt.scatter(x_train, y_train)
-plt.xlabel("x")
-plt.ylabel("y")
-plt.title("y_smooth training data (0.8 split)")
-plt.grid(False)
-plt.show()
-
-# plotting test data
-plt.figure()
-plt.scatter(x_test, y_test)
-plt.xlabel("x")
-plt.ylabel("y")
-plt.title("y_smooth testing data (0.2 split)")
-plt.grid(False)
-plt.show()
 
 
+## train2 and validation data (80/20 split of training data)
+# validation data to be exclusive to the mse prediction penalty at each iteration
+# train2 to be exclusive to the rho calculation at each iteration
+x_train2, x_validation, y_train2, y_validation = train_test_split(
+    x_train, y_train, # inputing original x and y from csv
+    test_size = 0.2, # 80% train, 20% test
+    random_state = 51, # setting random seed for this
+    shuffle = True # shuffling data because no time dependency
+)
 
-# train2 (80% of training data)
-# Validation data (20% of training data)
-
-## Testing data (20% of total data)
 
 
 totalSampleSize = len(df_experiment['x']) # have to set totalsamplesize for rho calculation function
-#X_1D = df_experiment['x']
-#Y = df_experiment['y_smooth'] # take 'column' from above as appropriate
 
-#X_1D = jnp.asarray(df_experiment['x'].to_numpy(), dtype=jnp.float32)
-#Y = jnp.asarray(df_experiment['y_rough_true'].to_numpy(), dtype=jnp.float32)
+X_1D = jnp.asarray(x_train2.to_numpy(), dtype=jnp.float32)
+Y = jnp.asarray(y_train2.to_numpy(), dtype=jnp.float32)
 #######################################################################
 
 ## Function for calculating rho
