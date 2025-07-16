@@ -215,11 +215,20 @@ def calc_mse(w):
 
     # calculate mean squared error between predicted y and y validation 
     mse = jnp.mean((y_validation - y_validation_pred) ** 2)
-    print("MSE = ", mse)
 
     return mse
      
 
+# initialize weights for composite criterion 
+rho_weight = 1
+mse_weight = 1
+
+# function for computing the composite criterion 
+def calc_comp_crit(w): # function of only kernel parameters in order to use jax gradient calculation 
+    comp_crit = rho_weight*calc_rho(w) + mse_weight*calc_mse(w)
+    
+    return(comp_crit)
+    
 
 ## Handling multiple samples 
 ## Kernel flow algorithm for gradient descent across multiple samples of data 
@@ -472,15 +481,11 @@ def grad_desc_fs(max_iter, w_init):
 def grad_desc_mse_fs(max_iter, w_init):
 
     rho_ts = np.zeros(max_iter + 1) # initialize array holding rho values at each step
-    psi_ts = np.zeros(max_iter + 1) # initialize array holding rho values at each step
+    mse_ts = np.zeros(max_iter + 1) # initialize array holding rho values at each step
     w_ts = np.zeros(max_iter + 1) # initialize array to hold parameter values at each step (1d) 
 
-    # training KRR on train2 data
-
-    # testing KRR on validation data
-
-
     rho_ts[0] = calc_rho(w_init) # calculating initial rho value
+    mse_ts = calc_mse(w_init) # calculating mse of initial KRR prediction 
     w_ts[0] = w_init # making first entry the initial parameters 
 
     for i in range(max_iter):
