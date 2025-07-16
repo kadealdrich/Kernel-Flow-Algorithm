@@ -10,6 +10,8 @@ import random
 import pandas as pd 
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from sklearn.kernel_ridge import KernelRidge
+from sklearn.metrics import mean_squared_error
 
 random.seed(51)
 
@@ -94,9 +96,15 @@ x_train2, x_validation, y_train2, y_validation = train_test_split(
 
 totalSampleSize = len(df_experiment['x']) # have to set totalsamplesize for rho calculation function
 
+# Setting up data which is used only in rho calculation 
 X_1D = jnp.asarray(x_train2.to_numpy(), dtype=jnp.float32)
 Y = jnp.asarray(y_train2.to_numpy(), dtype=jnp.float32)
+
+# Setting up data for use in mse calculation 
+x_validation = jnp.asarray(x_validation.to_numpy(), dtype=jnp.float32)
+y_validation = jnp.asarray(y_validation.to_numpy(), dtype=jnp.float32)
 #######################################################################
+
 
 ## Function for calculating rho
 # Needs to only take kernel parameters w as an input
@@ -105,8 +113,8 @@ Y = jnp.asarray(y_train2.to_numpy(), dtype=jnp.float32)
 # define kernel matrices as a function of w
 
 # vectors for holding condition values of Kf and Kc matrices for testing
-Kf_conds = np.zeros(shape = 1000)
-Kc_conds = np.zeros(shape = 1000)
+#Kf_conds = np.zeros(shape = 1000)
+#Kc_conds = np.zeros(shape = 1000)
 
 def calc_rho(w):
     # sampling done within for loop
@@ -184,6 +192,33 @@ def calc_rho(w):
     #print("rho=", rho, ", w=", w)
 
     return rho
+
+
+# function for calculating mean squared error on validation data
+def calc_mse(w):
+    # calculating kernel gram matrix
+    diffs = X_1D[:, None] - X_1D[None, :]
+    sqdf = diffs**2  # square diff matrix (nf, nf)
+    K_train = jnp.exp(-w * sqdf)
+    K_train_reg = K_train + lam * jnp.eye(len(X_1D)) 
+
+    # solving for the weights 
+    weights = jnp.linalg.solve(K_train_reg, Y) # here Y and X_1D are the training sample of the training sample
+
+    # predicting unseen validation data
+    x_validation_sq = jnp.sum(x_validation**2, axis=1)[:, None] 
+    x_train2_sq = np.sum(X_1D**2, axis=1)[None, :]
+    sq_dists = x_validation_sq + x_train2_sq - 2 * x_validation @ x_train2.T
+    K_test_train = np.exp(-w * sq_dists) # kernel gram matrix of the train2 and validation x's 
+
+    y_validation_pred = K_test_train @ weights # KRR prediction of y validation
+
+    # calculate mean squared error between predicted y and y validation 
+    mse = jnp.mean((y_validation - y_validation_pred) ** 2)
+    print("MSE = ", mse)
+
+    return mse
+     
 
 
 ## Handling multiple samples 
@@ -431,6 +466,52 @@ def grad_desc_fs(max_iter, w_init):
     #})
 
     #return row
+
+
+# Gradient descent function with mse penalty and fixed stepsize
+def grad_desc_mse_fs(max_iter, w_init):
+
+    rho_ts = np.zeros(max_iter + 1) # initialize array holding rho values at each step
+    psi_ts = np.zeros(max_iter + 1) # initialize array holding rho values at each step
+    w_ts = np.zeros(max_iter + 1) # initialize array to hold parameter values at each step (1d) 
+
+    # training KRR on train2 data
+
+    # testing KRR on validation data
+
+
+    rho_ts[0] = calc_rho(w_init) # calculating initial rho value
+    w_ts[0] = w_init # making first entry the initial parameters 
+
+    for i in range(max_iter):
+        calc_grad = jax.grad(calc_rho) # compute gradient of rho 
+        grad = calc_grad(w_ts[i]) # calculate gradient at current parameters
+
+        step = 0.2 # fixed step size 
+
+        # calculate new parameter value using fixed step size 
+        new_w = w_ts[i] - step * grad
+        new_rho = calc_rho(new_w)
+
+        rho_ts[i + 1] = new_rho
+        w_ts[i + 1] = new_w
+
+        print(i, ": rho= ", new_rho)
+        #print("rho", i+1, ": ", rho_ts[i+1])
+    
+    #print("rhos: ", rho_ts)
+    #print("Final rho: ", rho_ts[max_iter]) # printing final rho value
+    #print("Starting gamma: ", w_init)
+    #print("Final gamma: ", w_ts[max_iter])
+    # return data frame of parameters and rho values
+
+    df = pd.DataFrame({
+        'iteration': np.arange(max_iter + 1),
+        'gamma': w_ts,
+        'rho': rho_ts
+        })
+
+    return df
 
 
 # making plot of descent of rho^2
