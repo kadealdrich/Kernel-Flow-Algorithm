@@ -70,7 +70,9 @@ x_validation = jnp.asarray(x_validation.to_numpy(), dtype=jnp.float32)
 y_validation = jnp.asarray(y_validation.to_numpy(), dtype=jnp.float32)
 
 
-
+############## Global Parameters  ################
+lam = 200 
+##################################################
 
 # function for calculating mean squared error on validation data
 def calc_mse(w):
