@@ -71,7 +71,13 @@ y_validation = jnp.asarray(y_validation.to_numpy(), dtype=jnp.float32)
 
 
 ############## Global Parameters  ################
-lam = 200 
+
+# Kernel Ridge Regression Regularization parameter:
+lam = 200  
+
+# RBF kernel parameter:
+w = 2 
+
 ##################################################
 
 # function for calculating mean squared error on validation data
