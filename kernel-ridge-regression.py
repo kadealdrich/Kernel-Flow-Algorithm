@@ -9,6 +9,7 @@ import jax.numpy as jnp
 import numpy as np
 import jax
 from jax import grad, make_jaxpr, jit
+from jax.scipy.linalg import solve
 import random
 import pandas as pd 
 import matplotlib.pyplot as plt
@@ -116,7 +117,8 @@ def KRR(w, x_train, y_train, x_test):
     K_train_reg = K_train + lam * jnp.eye(len(x_train))  # regularized kernel gram matrix 
 
     # solving for the weights 
-    weights = jnp.linalg.solve(K_train_reg, y_train) 
+    weights = solve(K_train_reg, y_train, sym_pos = True) 
+    # sym_pos: sym mean symmetric, pos means positive definite --> jax uses Cholesky decomp which is fast and should help with numerical issues
 
     # predicting unseen validation data
     x_test_sq = jnp.sum(x_test**2, axis=1)[:, None] 
