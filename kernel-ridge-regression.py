@@ -111,17 +111,17 @@ KRR_pred = KRR(w = 2, lam = 200, x_train = X_1D, y_train = Y, x_test = x_validat
 @jit
 def calc_mse(w):
     # calculating kernel gram matrix
-    train_diffs = x_train[:, None] - x_train[None, :]
+    train_diffs = X_1D[:, None] - X_1D[None, :]
     train_sqdf = train_diffs**2  # square diff matrix (nf, nf)
     K_train = jnp.exp(-w * train_sqdf) # kernel gram matrix of training data
-    K_train_reg = K_train + lam * jnp.eye(len(x_train))  # regularized kernel gram matrix 
+    K_train_reg = K_train + lam * jnp.eye(len(X_1D))  # regularized kernel gram matrix 
 
     # solving for the weights 
-    weights = solve(K_train_reg, y_train, assume_a = 'pos', lower=True) # positive definite and symmetric  
+    weights = solve(K_train_reg, Y, assume_a = 'pos', lower=True) # positive definite and symmetric  
     # sym_pos: sym mean symmetric, pos means positive definite --> jax uses Cholesky decomp which is fast and should help with numerical issues
 
     # predicting unseen validation data
-    train_test_diffs = x_test[:, None] - x_train[None, :] # difference matrix between test and train matrices
+    train_test_diffs = x_validation[:, None] - X_1D[None, :] # difference matrix between test and train matrices
     sq_dists = train_test_diffs**2
     K_test_train = jnp.exp(-w * sq_dists) # kernel gram matrix of the train2 and validation x's 
 
@@ -139,6 +139,7 @@ def calc_mse(w):
 # compare y pred to y test via mse and graph 
 # make sure scikit learn mse and my mse match up 
 
+mse_manual = calc_mse(w)
 
 # plotting 
 plt.figure()                       # new figure
@@ -147,6 +148,6 @@ plt.plot(x_validation, KRR_pred, 'o', label='Predicted y', markersize=5)
 plt.xlabel('x_test')              # label axes
 plt.ylabel('y')
 plt.title('True Y vs KRR prediction on Test Set')
-plt.legend(title=f'w = {w}, λ = {lam}')
+plt.legend(title=f'w = {w}, λ = {lam}, mse = {mse_manual:.5f})') # rounding mse to 5 digits
 plt.tight_layout()
 plt.show()
