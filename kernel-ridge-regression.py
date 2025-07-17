@@ -15,8 +15,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import mean_squared_error, r2_score
 
-
-
 ######## Option for importing a csv #########
 # Loading in experiment data
 
@@ -50,7 +48,7 @@ x_train, x_test, y_train, y_test = train_test_split(
 # validation data to be exclusive to the mse prediction penalty at each iteration
 # train2 to be exclusive to the rho calculation at each iteration
 x_train2, x_validation, y_train2, y_validation = train_test_split(
-    x_train, y_train, # inputing original x and y from csv
+    x_train, y_train, # inputing training split to be split again
     test_size = 0.2, # 80% train, 20% test
     random_state = 51, # setting random seed for this
     shuffle = True # shuffling data because no time dependency
@@ -79,29 +77,6 @@ w = 2
 ##################################################
 
 
-# function for calculating mean squared error of KRR prediction on validation data
-def calc_mse(w):
-    # calculating kernel gram matrix
-    diffs = X_1D[:, None] - X_1D[None, :]
-    sqdf = diffs**2  # square diff matrix (nf, nf)
-    K_train = jnp.exp(-w * sqdf)
-    K_train_reg = K_train + lam * jnp.eye(len(X_1D)) 
-
-    # solving for the weights 
-    weights = jnp.linalg.solve(K_train_reg, Y) # here Y and X_1D are the training sample of the training sample
-
-    # predicting unseen validation data
-    x_validation_sq = jnp.sum(x_validation**2, axis=1)[:, None] 
-    x_train2_sq = np.sum(X_1D**2, axis=1)[None, :]
-    sq_dists = x_validation_sq + x_train2_sq - 2 * x_validation @ x_train2.T
-    K_test_train = np.exp(-w * sq_dists) # kernel gram matrix of the train2 and validation x's 
-
-    y_validation_pred = K_test_train @ weights # KRR prediction of y validation
-
-    # calculate mean squared error between predicted y and y validation 
-    mse = jnp.mean((y_validation - y_validation_pred) ** 2)
-
-    return mse
 
 # function for predicting unseen data using kernel ridge regression 
 # isolating this from calc_mse function above 
@@ -114,18 +89,48 @@ def KRR(w, lam, x_train, y_train, x_test):
     K_train_reg = K_train + lam * jnp.eye(len(x_train))  # regularized kernel gram matrix 
 
     # solving for the weights 
-    weights = solve(K_train_reg, y_train, sym_pos = True) 
+    weights = solve(K_train_reg, y_train, assume_a = 'pos', lower=True) # positive definite and symmetric  
     # sym_pos: sym mean symmetric, pos means positive definite --> jax uses Cholesky decomp which is fast and should help with numerical issues
 
     # predicting unseen validation data
-    x_test_sq = jnp.sum(x_test**2, axis=1)[:, None] 
-    x_train2_sq = jnp.sum(x_train**2, axis=1)[None, :]
-    sq_dists = x_test_sq + x_train2_sq - 2 * x_test @ x_train.T
+    train_test_diffs = x_test[:, None] - x_train[None, :] # difference matrix between test and train matrices
+    sq_dists = train_test_diffs**2
     K_test_train = jnp.exp(-w * sq_dists) # kernel gram matrix of the train2 and validation x's 
 
     y_pred = K_test_train @ weights # KRR prediction of y validation
 
     return y_pred 
+
+
+KRR_pred = KRR(w = 2, lam = 200, x_train = X_1D, y_train = Y, x_test = x_validation)
+
+
+# function for calculating mean squared error of KRR prediction on validation data
+# uses global variables for test y values and predicted y values so that jax can be used for gradient calculation in the future
+# all the same as the KRR function except for it returns the prediction mean squared error
+@jit
+def calc_mse(w):
+    # calculating kernel gram matrix
+    train_diffs = x_train[:, None] - x_train[None, :]
+    train_sqdf = train_diffs**2  # square diff matrix (nf, nf)
+    K_train = jnp.exp(-w * train_sqdf) # kernel gram matrix of training data
+    K_train_reg = K_train + lam * jnp.eye(len(x_train))  # regularized kernel gram matrix 
+
+    # solving for the weights 
+    weights = solve(K_train_reg, y_train, assume_a = 'pos', lower=True) # positive definite and symmetric  
+    # sym_pos: sym mean symmetric, pos means positive definite --> jax uses Cholesky decomp which is fast and should help with numerical issues
+
+    # predicting unseen validation data
+    train_test_diffs = x_test[:, None] - x_train[None, :] # difference matrix between test and train matrices
+    sq_dists = train_test_diffs**2
+    K_test_train = jnp.exp(-w * sq_dists) # kernel gram matrix of the train2 and validation x's 
+
+    y_pred = K_test_train @ weights # KRR prediction of y validation
+
+    mse = jnp.mean((y_validation - y_pred)**2) # calculate mean squared error of kernel ridge regression prediction
+    
+    return mse
+
 
 
 
@@ -135,3 +140,13 @@ def KRR(w, lam, x_train, y_train, x_test):
 # make sure scikit learn mse and my mse match up 
 
 
+# plotting 
+plt.figure()                       # new figure
+plt.plot(x_validation, y_validation, 'o', label='True y', markersize=5)
+plt.plot(x_validation, KRR_pred, 'o', label='Predicted y', markersize=5)
+plt.xlabel('x_test')              # label axes
+plt.ylabel('y')
+plt.title('True Y vs KRR prediction on Test Set')
+plt.legend(title=f'w = {w}, λ = {lam}')
+plt.tight_layout()
+plt.show()
