@@ -226,7 +226,7 @@ mse_weight = 1
 # function for computing the composite criterion 
 def calc_comp_crit(w): # function of only kernel parameters in order to use jax gradient calculation 
     comp_crit = rho_weight*calc_rho(w) + mse_weight*calc_mse(w)
-    
+
     return(comp_crit)
     
 
