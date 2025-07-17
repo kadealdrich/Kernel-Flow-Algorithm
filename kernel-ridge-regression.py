@@ -7,15 +7,14 @@
 
 import jax.numpy as jnp
 import numpy as np
-import jax
 from jax import grad, make_jaxpr, jit
 from jax.scipy.linalg import solve
-import random
 import pandas as pd 
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.kernel_ridge import KernelRidge
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
+
 
 
 ######## Option for importing a csv #########
@@ -47,7 +46,6 @@ x_train, x_test, y_train, y_test = train_test_split(
 )
 
 
-
 ## train2 and validation data (80/20 split of training data)
 # validation data to be exclusive to the mse prediction penalty at each iteration
 # train2 to be exclusive to the rho calculation at each iteration
@@ -57,7 +55,6 @@ x_train2, x_validation, y_train2, y_validation = train_test_split(
     random_state = 51, # setting random seed for this
     shuffle = True # shuffling data because no time dependency
 )
-
 
 
 totalSampleSize = len(df_experiment['x']) # have to set totalsamplesize for rho calculation function
@@ -109,7 +106,7 @@ def calc_mse(w):
 # function for predicting unseen data using kernel ridge regression 
 # isolating this from calc_mse function above 
 @jit
-def KRR(w, x_train, y_train, x_test):
+def KRR(w, lam, x_train, y_train, x_test):
     # calculating kernel gram matrix
     train_diffs = x_train[:, None] - x_train[None, :]
     train_sqdf = train_diffs**2  # square diff matrix (nf, nf)
@@ -129,3 +126,12 @@ def KRR(w, x_train, y_train, x_test):
     y_pred = K_test_train @ weights # KRR prediction of y validation
 
     return y_pred 
+
+
+
+#####################  Experimentation  ######################
+# use x train and y train to train the model and calc r2 
+# compare y pred to y test via mse and graph 
+# make sure scikit learn mse and my mse match up 
+
+
