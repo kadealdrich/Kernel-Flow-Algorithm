@@ -8,7 +8,7 @@
 import jax.numpy as jnp
 import numpy as np
 import jax
-from jax import grad, make_jaxpr
+from jax import grad, make_jaxpr, jit
 import random
 import pandas as pd 
 import matplotlib.pyplot as plt
@@ -80,7 +80,8 @@ w = 2
 
 ##################################################
 
-# function for calculating mean squared error on validation data
+
+# function for calculating mean squared error of KRR prediction on validation data
 def calc_mse(w):
     # calculating kernel gram matrix
     diffs = X_1D[:, None] - X_1D[None, :]
@@ -103,3 +104,26 @@ def calc_mse(w):
     mse = jnp.mean((y_validation - y_validation_pred) ** 2)
 
     return mse
+
+# function for predicting unseen data using kernel ridge regression 
+# isolating this from calc_mse function above 
+@jit
+def KRR(w, x_train, y_train, x_test):
+    # calculating kernel gram matrix
+    train_diffs = x_train[:, None] - x_train[None, :]
+    train_sqdf = train_diffs**2  # square diff matrix (nf, nf)
+    K_train = jnp.exp(-w * train_sqdf) # kernel gram matrix of training data
+    K_train_reg = K_train + lam * jnp.eye(len(x_train))  # regularized kernel gram matrix 
+
+    # solving for the weights 
+    weights = jnp.linalg.solve(K_train_reg, y_train) 
+
+    # predicting unseen validation data
+    x_test_sq = jnp.sum(x_test**2, axis=1)[:, None] 
+    x_train2_sq = jnp.sum(x_train**2, axis=1)[None, :]
+    sq_dists = x_test_sq + x_train2_sq - 2 * x_test @ x_train.T
+    K_test_train = jnp.exp(-w * sq_dists) # kernel gram matrix of the train2 and validation x's 
+
+    y_pred = K_test_train @ weights # KRR prediction of y validation
+
+    return y_pred 
