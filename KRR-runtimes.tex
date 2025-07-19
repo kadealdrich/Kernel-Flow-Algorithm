@@ -1,7 +1,17 @@
-\documentclass[tikz,border=5pt]{standalone}
+\documentclass[10pt,a4paper]{article}
+\usepackage[a4paper,margin=1in]{geometry}
 \usepackage{pgfplots}
 \usepgfplotslibrary{statistics}    % ← required for boxplot
 \pgfplotsset{compat=1.18}
+\usepackage{booktabs}
+\usepackage[T1]{fontenc}
+
+% For number formatting (\num{…}):
+\usepackage{siunitx}
+
+% COMPARING MANUAL AND SKLEARN WITHOUT JIT
+
+% box plots
 
 \begin{document}
 \begin{tikzpicture}
@@ -30,4 +40,27 @@
 
   \end{axis}
 \end{tikzpicture}
+
+
+% making anova table
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+Source          & SS             & DF   & MS             & F          & Pr(>F)      \\
+\midrule
+Between Groups  & \num{2.4975e-01} & \num{1}   & \num{2.4975e-01} & \num{15609.3384} & \num{0.000e+00} \\
+Within Groups   & \num{3.1968e-02} & \num{1998}& \num{1.6000e-05} &               &               \\
+Total           & \num{2.8172e-01} & \num{1999}&                  &               &               \\
+\bottomrule
+\end{tabular}
+\caption{ANOVA comparing manual vs.\ sklearn KRR runtimes}
+\label{tab:anova_krr}
+\end{table}
+
+
+
+
+
 \end{document}
