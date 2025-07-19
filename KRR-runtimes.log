@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.5.21)  19 JUL 2025 15:08
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.5.21)  19 JUL 2025 15:22
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -664,6 +664,23 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <7> on input line 41.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <5> on input line 41.
+PGFPlots: reading {manual_krr_runtimes_noJIT.csv}
+Package pgfplots info on input line 87: boxplot: got lower quartile=1.3486496e1
+
+Package pgfplots info on input line 87: boxplot: got median=1.5202002e1
+Package pgfplots info on input line 87: boxplot: got upper quartile=1.5744395e1
+
+Package pgfplots info on input line 87: boxplot: got sample size=1.0e3
+Package pgfplots info on input line 87: boxplot: got lower whisker=1.2479996e1
+Package pgfplots info on input line 87: boxplot: got upper whisker=1.8834793e1
+PGFPlots: reading {sklearn_krr_runtimes_noJIT.csv}
+Package pgfplots info on input line 93: boxplot: got lower quartile=2.1063248e1
+
+Package pgfplots info on input line 93: boxplot: got median=2.9066101e1
+Package pgfplots info on input line 93: boxplot: got upper quartile=3.032098e1
+Package pgfplots info on input line 93: boxplot: got sample size=1.0e3
+Package pgfplots info on input line 93: boxplot: got lower whisker=1.9654999e1
+Package pgfplots info on input line 93: boxplot: got upper whisker=3.3560303e1
 
 
 [1
@@ -674,12 +691,16 @@ texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc}] (./KRR-runtimes.aux)
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-04-29>
  ***********
+
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
  ) 
 Here is how much of TeX's memory you used:
- 29733 strings out of 469590
- 782523 string characters out of 5474519
- 1191835 words of memory out of 5000000
- 56219 multiletter control sequences out of 15000+600000
+ 29743 strings out of 469590
+ 782741 string characters out of 5474519
+ 1203744 words of memory out of 5000000
+ 56225 multiletter control sequences out of 15000+600000
  627588 words of font info for 41 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  99i,10n,105p,769b,5467s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -689,7 +710,7 @@ texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb><c:/texlive/2025/texmf-dist/
 fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/texlive/2025/texmf-dist/fonts/typ
 e1/public/amsfonts/cm/cmsy7.pfb><c:/texlive/2025/texmf-dist/fonts/type1/public/
 cm-super/sfrm1000.pfb>
-Output written on KRR-runtimes.pdf (1 page, 64804 bytes).
+Output written on KRR-runtimes.pdf (1 page, 66725 bytes).
 PDF statistics:
  42 PDF objects out of 1000 (max. 8388607)
  26 compressed objects within 1 object stream

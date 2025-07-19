@@ -9,7 +9,7 @@
 % For number formatting (\num{…}):
 \usepackage{siunitx}
 
-% COMPARING MANUAL AND SKLEARN WITHOUT JIT
+% COMPARING MANUAL AND SKLEARN WITH JIT
 
 % box plots
 
@@ -59,6 +59,59 @@ Total           & \num{2.8172e-01} & \num{1999}&                  &             
 \label{tab:anova_krr}
 \end{table}
 
+
+
+
+
+
+% COMPARING MANUAL AND SKLEARN WITHOUT JIT
+
+% box plots
+
+\begin{tikzpicture}
+  \begin{axis}[
+    boxplot/draw direction=y,
+    ylabel={Runtime (ms)},
+    xtick={1,2},
+    xticklabels={Manual (w/o JIT), sklearn},
+    ymajorgrids,
+    title={KRR Runtime Distributions},
+    every axis plot/.style={draw=black, fill=gray!30},
+    width=10cm,
+    height=6cm,
+  ]
+    % Manual KRR runtimes (converted to ms)
+    \addplot+[
+      boxplot,
+      boxplot/draw position=1,
+    ] table[y expr=\thisrowno{0}*1000] {manual_krr_runtimes_noJIT.csv};
+
+    % sklearn KRR runtimes (converted to ms)
+    \addplot+[
+      boxplot,
+      boxplot/draw position=2,
+    ] table[y expr=\thisrowno{0}*1000] {sklearn_krr_runtimes_noJIT.csv};
+
+  \end{axis}
+\end{tikzpicture}
+
+
+% making anova table
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+Source          & SS             & DF   & MS             & F          & Pr(>F)      \\
+\midrule
+Between Groups  & \num{7.3531e-02} & \num{1}   & \num{7.3531e-01} & \num{7144.2436} & \num{0.000e+00} \\
+Within Groups   & \num{2.0564e-02} & \num{1998}& \num{1.0292e-05} &               &               \\
+Total           & \num{9.4095e-02} & \num{1999}&                  &               &               \\
+\bottomrule
+\end{tabular}
+\caption{ANOVA comparing manual vs.\ sklearn KRR runtimes without Just In Time compilation for manual method}
+\label{tab:anova_krr}
+\end{table}
 
 
 
