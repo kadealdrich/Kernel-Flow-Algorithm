@@ -116,4 +116,61 @@ Total           & \num{9.4095e-02} & \num{1999}&                  &             
 
 
 
+
+
+% COMPARING MANUAL AND SKLEARN WITHOUT JIT OR POSITIVE DEFINITE SYMMETRIC KERNEL GRAM MATRIX ASSUMPTIONS
+
+% box plots
+
+\begin{tikzpicture}
+  \begin{axis}[
+    boxplot/draw direction=y,
+    ylabel={Runtime (ms)},
+    xtick={1,2},
+    xticklabels={Manual (w/o JIT), sklearn},
+    ymajorgrids,
+    title={KRR Runtime Distributions},
+    every axis plot/.style={draw=black, fill=gray!30},
+    width=10cm,
+    height=6cm,
+  ]
+    % Manual KRR runtimes (converted to ms)
+    \addplot+[
+      boxplot,
+      boxplot/draw position=1,
+    ] table[y expr=\thisrowno{0}*1000] {manual_krr_runtimes_noJIT_genmatrix.csv};
+
+    % sklearn KRR runtimes (converted to ms)
+    \addplot+[
+      boxplot,
+      boxplot/draw position=2,
+    ] table[y expr=\thisrowno{0}*1000] {sklearn_krr_runtimes_noJIT_genmatrix.csv};
+
+  \end{axis}
+\end{tikzpicture}
+
+
+% making anova table
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+Source          & SS             & DF   & MS             & F          & Pr(>F)      \\
+\midrule
+Between Groups  & \num{5.2050e-02} & \num{1}   & \num{5.2050e-02} & \num{3798.6955} & \num{0.000e+00} \\
+Within Groups   & \num{2.7377e-02} & \num{1998}& \num{ 1.3702e-05} &               &               \\
+Total           & \num{7.9427e-02 } & \num{1999}&                  &               &               \\
+\bottomrule
+\end{tabular}
+\caption{ANOVA comparing manual vs.\ sklearn KRR runtimes without Just In Time compilation or symmetry and positive definiteness assumed for kernel Gram matrix for manual method}
+\label{tab:anova_krr}
+\end{table}
+
+
+
+
+
+
+
 \end{document}

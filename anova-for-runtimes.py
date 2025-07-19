@@ -9,8 +9,8 @@ from scipy.stats import f
 
 
 # load csv's of runtimes
-manual  = pd.read_csv("manual_krr_runtimes_noJIT.csv", header=None).iloc[:,0].values
-sklearn = pd.read_csv("sklearn_krr_runtimes_noJIT.csv", header=None).iloc[:,0].values
+manual  = pd.read_csv("manual_krr_runtimes_noJIT_genmatrix.csv", header=None).iloc[:,0].values
+sklearn = pd.read_csv("sklearn_krr_runtimes_noJIT_genmatrix.csv", header=None).iloc[:,0].values
 
 # calculate basic stats:
 n1, n2 = len(manual), len(sklearn)

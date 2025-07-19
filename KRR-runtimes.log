@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.5.21)  19 JUL 2025 15:22
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.5.21)  19 JUL 2025 15:36
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -681,12 +681,35 @@ Package pgfplots info on input line 93: boxplot: got upper quartile=3.032098e1
 Package pgfplots info on input line 93: boxplot: got sample size=1.0e3
 Package pgfplots info on input line 93: boxplot: got lower whisker=1.9654999e1
 Package pgfplots info on input line 93: boxplot: got upper whisker=3.3560303e1
+PGFPlots: reading {manual_krr_runtimes_noJIT_genmatrix.csv}
+Package pgfplots info on input line 141: boxplot: got lower quartile=1.7619229e
+1
+Package pgfplots info on input line 141: boxplot: got median=1.8516403e1
+Package pgfplots info on input line 141: boxplot: got upper quartile=1.9092822e
+1
+Package pgfplots info on input line 141: boxplot: got sample size=1.0e3
+Package pgfplots info on input line 141: boxplot: got lower whisker=1.5409302e1
+
+Package pgfplots info on input line 141: boxplot: got upper whisker=2.1260895e1
+
+PGFPlots: reading {sklearn_krr_runtimes_noJIT_genmatrix.csv}
+Package pgfplots info on input line 147: boxplot: got lower quartile=2.8039854e
+1
+Package pgfplots info on input line 147: boxplot: got median=3.004325e1
+Package pgfplots info on input line 147: boxplot: got upper quartile=3.0745677e
+1
+Package pgfplots info on input line 147: boxplot: got sample size=1.0e3
+Package pgfplots info on input line 147: boxplot: got lower whisker=2.40858e1
+Package pgfplots info on input line 147: boxplot: got upper whisker=3.4801407e1
+
 
 
 [1
 
 {c:/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{c:/texlive/2025/
-texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc}] (./KRR-runtimes.aux)
+texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc}]
+
+[2] (./KRR-runtimes.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-04-29>
@@ -697,10 +720,10 @@ LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
 
  ) 
 Here is how much of TeX's memory you used:
- 29743 strings out of 469590
- 782741 string characters out of 5474519
- 1203744 words of memory out of 5000000
- 56225 multiletter control sequences out of 15000+600000
+ 29753 strings out of 469590
+ 782999 string characters out of 5474519
+ 1325475 words of memory out of 5000000
+ 56231 multiletter control sequences out of 15000+600000
  627588 words of font info for 41 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  99i,10n,105p,769b,5467s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -710,10 +733,10 @@ texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb><c:/texlive/2025/texmf-dist/
 fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/texlive/2025/texmf-dist/fonts/typ
 e1/public/amsfonts/cm/cmsy7.pfb><c:/texlive/2025/texmf-dist/fonts/type1/public/
 cm-super/sfrm1000.pfb>
-Output written on KRR-runtimes.pdf (1 page, 66725 bytes).
+Output written on KRR-runtimes.pdf (2 pages, 79898 bytes).
 PDF statistics:
- 42 PDF objects out of 1000 (max. 8388607)
- 26 compressed objects within 1 object stream
+ 45 PDF objects out of 1000 (max. 8388607)
+ 28 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
  13 words of extra memory for PDF output out of 10000 (max. 10000000)
 
