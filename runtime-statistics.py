@@ -5,7 +5,7 @@
 
 import pandas as pd
 import numpy as np 
-from scipy.stats import f, wilcoxon 
+from scipy.stats import f, wilcoxon, ttest_rel 
 
 
 # load csv's of runtimes
@@ -52,7 +52,26 @@ manual_nojit_genmatrix  = pd.read_csv("manual_krr_runtimes_noJIT_genmatrix.csv",
 sklearn_nojit_genmatrix = pd.read_csv("sklearn_krr_runtimes_noJIT_genmatrix.csv", header=None).iloc[:,0].values
 
 ## calculating the statistics
+# alternate hypothesis is that the distribution of manual KRR run times is smaller 
+# with JIT and nice matrix assumptions 
+paired_ttest_jit = ttest_rel(a = manual_jit, b = sklearn_jit,
+                             nan_policy='raise',
+                             alternative='less'
+                             )
 
+# without JIT but WITH nice matrix assumptions
+paired_ttest_nojit = ttest_rel(a = manual_nojit, b = sklearn_nojit,
+                             nan_policy='raise',
+                             alternative='less'
+                             )
 
-# results for jit 
-print('Wilcoxon results (JIT)  |  Statistic: ', wilcoxon_jit.statistic, "  |  p-value: ", wilcoxon_jit.pvalue)
+# without JIT or nice matrix assumptions
+paired_ttest_nojit_genmatrix = ttest_rel(a = manual_nojit_genmatrix, b = sklearn_nojit_genmatrix,
+                             nan_policy='raise',
+                             alternative='less'
+                             )
+
+# printing results
+print(f"Paired t-test results (JIT):  |  t = {paired_ttest_jit.statistic:.3f}  |  p = {paired_ttest_jit.pvalue:.3e}") # jit and matrix assumptions
+print(f"Paired t-test results (no JIT):  |  t = {paired_ttest_nojit.statistic:.3f}  |  p = {paired_ttest_nojit.pvalue:.3e}") # matrix assumptions but no jit  
+print(f"Paired t-test results (no JIT genmatrix):  |  t = {paired_ttest_nojit_genmatrix.statistic:.3f}  |  p = {paired_ttest_nojit_genmatrix.pvalue:.3e}") # no jit or nice matrix assumptions
