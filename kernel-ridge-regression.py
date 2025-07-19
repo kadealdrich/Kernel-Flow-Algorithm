@@ -18,6 +18,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import mean_squared_error, r2_score
 import time
+from scipy.stats import f
 
 ######## Option for importing a csv #########
 # Loading in experiment data
@@ -206,7 +207,7 @@ def sklearn_call(): # method for calling sklearn KRR
 _ = manual_call() # compiles it
 
 # using timeit package 
-n_runs = 500 # number of runs
+n_runs = 1000 # number of runs
 
 # saving times 
 manual_times = np.empty(n_runs, dtype = np.float64)

@@ -1,0 +1,33 @@
+\documentclass[tikz,border=5pt]{standalone}
+\usepackage{pgfplots}
+\usepgfplotslibrary{statistics}    % ← required for boxplot
+\pgfplotsset{compat=1.18}
+
+\begin{document}
+\begin{tikzpicture}
+  \begin{axis}[
+    boxplot/draw direction=y,
+    ylabel={Runtime (ms)},
+    xtick={1,2},
+    xticklabels={Manual (JIT), sklearn},
+    ymajorgrids,
+    title={KRR Runtime Distributions},
+    every axis plot/.style={draw=black, fill=gray!30},
+    width=10cm,
+    height=6cm,
+  ]
+    % Manual KRR runtimes (converted to ms)
+    \addplot+[
+      boxplot,
+      boxplot/draw position=1,
+    ] table[y expr=\thisrowno{0}*1000] {manual_krr_runtimes.csv};
+
+    % sklearn KRR runtimes (converted to ms)
+    \addplot+[
+      boxplot,
+      boxplot/draw position=2,
+    ] table[y expr=\thisrowno{0}*1000] {sklearn_krr_runtimes.csv};
+
+  \end{axis}
+\end{tikzpicture}
+\end{document}
