@@ -95,7 +95,10 @@ def KRR(w, lam, x_train, y_train, x_test):
     K_train_reg = K_train + lam * jnp.eye(len(x_train))  # regularized kernel gram matrix 
 
     # solving for the weights 
-    weights = solve(K_train_reg, y_train, assume_a = 'pos', lower=True) # positive definite and symmetric  
+    weights = solve(K_train_reg, y_train, assume_a = 'gen') # positive definite and symmetric
+    # set argurments in solve for optimized solve: 
+    #   assume_a = 'pos', lower=True
+      
     # sym_pos: sym mean symmetric, pos means positive definite --> jax uses Cholesky decomp which is fast and should help with numerical issues
 
     # predicting unseen validation data
@@ -225,8 +228,8 @@ for i in range(n_runs):
 
 # saving times as csv files
 # this time with JIT disabled
-np.savetxt("manual_krr_runtimes_noJIT.csv",  manual_times, delimiter=",")
-np.savetxt("sklearn_krr_runtimes_noJIT.csv", sklearn_times, delimiter=",")
+np.savetxt("manual_krr_runtimes_noJIT_genmatrix.csv",  manual_times, delimiter=",")
+np.savetxt("sklearn_krr_runtimes_noJIT_genmatrix.csv", sklearn_times, delimiter=",")
 
 # printing mean time
 print(f"Manual  : mean {manual_times.mean()*1e3:.3f} ms, "
