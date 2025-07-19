@@ -57,6 +57,7 @@ x_train2, x_validation, y_train2, y_validation = train_test_split(
 
 totalSampleSize = len(df_experiment['x']) # have to set totalsamplesize for rho calculation function
 
+
 # Setting up data which is used only in rho calculation 
 X_1D = jnp.asarray(x_train2.to_numpy(), dtype=jnp.float32)
 Y = jnp.asarray(y_train2.to_numpy(), dtype=jnp.float32)
@@ -69,10 +70,10 @@ y_validation = jnp.asarray(y_validation.to_numpy(), dtype=jnp.float32)
 ############## Global Parameters  ################
 
 # Kernel Ridge Regression Regularization parameter:
-lam = 200  
+lam = 100
 
 # RBF kernel parameter:
-w = 2 
+w = 4
 
 ##################################################
 
@@ -102,7 +103,7 @@ def KRR(w, lam, x_train, y_train, x_test):
     return y_pred 
 
 
-KRR_pred = KRR(w = 2, lam = 200, x_train = X_1D, y_train = Y, x_test = x_validation)
+KRR_pred = KRR(w = 4, lam = 200, x_train = X_1D, y_train = Y, x_test = x_validation)
 
 
 # function for calculating mean squared error of KRR prediction on validation data
@@ -141,10 +142,29 @@ def calc_mse(w):
 
 mse_manual = calc_mse(w)
 
+
+
+## Validating using Sklearn 
+mod = KernelRidge(kernel = 'rbf', alpha= lam, gamma = w)
+
+x_train_reshaped = X_1D.reshape(-1,1)
+x_validation_reshaped = x_validation.reshape(-1,1)
+
+mod.fit(x_train_reshaped, Y)
+
+y_pred_sklearn = mod.predict(x_validation_reshaped)
+
+mse_sklearn = mean_squared_error(y_validation, y_pred_sklearn)
+print("MSE from SKlearn= ", mse_sklearn)
+print("MSE manual= ", mse_manual)
+
+
 # plotting 
 plt.figure()                       # new figure
 plt.plot(x_validation, y_validation, 'o', label='True y', markersize=5)
-plt.plot(x_validation, KRR_pred, 'o', label='Predicted y', markersize=5)
+plt.plot(x_validation, KRR_pred, 'o', label='Predicted y Manual', markersize=5)
+plt.plot(x_validation, y_pred_sklearn, 'o', label='Prediected y SKlearn', markersize=5)
+plt.plot(X_1D, Y, 'o', label='Training data', markersize=5)
 plt.xlabel('x_test')              # label axes
 plt.ylabel('y')
 plt.title('True Y vs KRR prediction on Test Set')
