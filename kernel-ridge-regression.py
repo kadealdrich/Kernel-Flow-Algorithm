@@ -7,13 +7,17 @@
 
 import jax.numpy as jnp
 import numpy as np
-from jax import grad, make_jaxpr, jit
+
+from jax import grad, make_jaxpr, jit, config
+config.update("jax_enable_x64", True) # enables 64 bit for numeric accuracy
+
 from jax.scipy.linalg import solve
 import pandas as pd 
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import mean_squared_error, r2_score
+import time
 
 ######## Option for importing a csv #########
 # Loading in experiment data
@@ -103,7 +107,7 @@ def KRR(w, lam, x_train, y_train, x_test):
     return y_pred 
 
 
-KRR_pred = KRR(w = 4, lam = 200, x_train = X_1D, y_train = Y, x_test = x_validation)
+KRR_pred = KRR(w = 4, lam = 100, x_train = X_1D, y_train = Y, x_test = x_validation)
 
 
 # function for calculating mean squared error of KRR prediction on validation data
@@ -171,3 +175,58 @@ plt.title('True Y vs KRR prediction on Test Set')
 plt.legend(title=f'w = {w}, λ = {lam}, mse = {mse_manual:.5f})') # rounding mse to 5 digits
 plt.tight_layout()
 plt.show()
+
+## Comparing the time between Sklearn and manual method
+
+# setting variables for testing
+X_train = X_1D                        # jnp array, shape (n,)
+Y_train = Y
+X_val   = x_validation
+lam = 100                             # regularisation
+gamma = w = 4                         # RBF parameter
+
+# sklearn wants 2-D float64 NumPy arrays
+X_train_np = jnp.asarray(X_train, dtype=jnp.float64).reshape(-1, 1)
+X_val_np   = jnp.asarray(X_val,   dtype=jnp.float64).reshape(-1, 1)
+
+# callable functions for KRR methods
+
+def manual_call(): # method for calling manual KRR
+    # fit and predict 
+    # jax warmup done once outside of this 
+    return KRR(w, lam, X_train, Y_train, X_val).block_until_ready()
+
+def sklearn_call(): # method for calling sklearn KRR
+    # fit and predict
+    model_sk = KernelRidge(kernel='rbf', alpha = lam, gamma = gamma)
+    model_sk.fit(X_train_np, Y_train)
+    return model_sk.predict(X_val_np)
+
+# warmup jax before starting the timers
+_ = manual_call() # compiles it
+
+# using timeit package 
+n_runs = 500 # number of runs
+
+# saving times 
+manual_times = np.empty(n_runs, dtype = np.float64)
+sklearn_times = np.empty(n_runs, dtype = np.float64)
+
+
+for i in range(n_runs):
+    t0 = time.perf_counter()
+    manual_call()
+    manual_times[i] = time.perf_counter() - t0
+
+    t0 = time.perf_counter()
+    sklearn_call()
+    sklearn_times[i] = time.perf_counter() - t0
+
+np.savetxt("manual_krr_runtimes.csv",  manual_times, delimiter=",")
+np.savetxt("sklearn_krr_runtimes.csv", sklearn_times, delimiter=",")
+
+# printing mean time
+print(f"Manual  : mean {manual_times.mean()*1e3:.3f} ms, "
+      f"std {manual_times.std()*1e3:.3f} ms (n={n_runs})")
+print(f"Sklearn : mean {sklearn_times.mean()*1e3:.3f} ms, "
+      f"std {sklearn_times.std()*1e3:.3f} ms (n={n_runs})")
