@@ -131,6 +131,58 @@ plt.xlabel('Iteration')
 plt.ylabel('Milliseconds')
 plt.title('Scatter Plot of diffs_nojit_genmatrix vs. Iteration')
 plt.grid(True)
+
+# scatterplots of run times
+
+# jit
+plt.figure() # manual
+plt.scatter(indices, manual_jit, s=20, alpha=0.7)  # s=size of points, alpha=transparency
+plt.xlabel('Iteration')
+plt.ylabel('Milliseconds')
+plt.title('Manual w/ jit runtime vs. Iteration')
+plt.grid(True)
+plt.show()
+
+plt.figure() # sklearn
+plt.scatter(indices, sklearn_jit, s=20, alpha=0.7)  # s=size of points, alpha=transparency
+plt.xlabel('Iteration')
+plt.ylabel('Milliseconds')
+plt.title('SKlearn w/ jit runtime vs. Iteration')
+plt.grid(True)
+plt.show()
+
+# no jit
+plt.figure() # manual
+plt.scatter(indices, manual_nojit, s=20, alpha=0.7)  # s=size of points, alpha=transparency
+plt.xlabel('Iteration')
+plt.ylabel('Milliseconds')
+plt.title('Manual w/o jit runtime vs. Iteration')
+plt.grid(True)
+plt.show()
+
+plt.figure() # sklearn
+plt.scatter(indices, sklearn_nojit, s=20, alpha=0.7)  # s=size of points, alpha=transparency
+plt.xlabel('Iteration')
+plt.ylabel('Milliseconds')
+plt.title('SKlearn w/o jit runtime vs. Iteration')
+plt.grid(True)
+plt.show()
+
+# no jit or matrix assumptions
+plt.figure() # manual
+plt.scatter(indices, manual_nojit_genmatrix, s=20, alpha=0.7)  # s=size of points, alpha=transparency
+plt.xlabel('Iteration')
+plt.ylabel('Milliseconds')
+plt.title('Manual w/o jit or matrix assumptions runtime vs. Iteration')
+plt.grid(True)
+plt.show()
+
+plt.figure() # sklearn
+plt.scatter(indices, sklearn_nojit_genmatrix, s=20, alpha=0.7)  # s=size of points, alpha=transparency
+plt.xlabel('Iteration')
+plt.ylabel('Milliseconds')
+plt.title('SKlearn w/o jit or matrix assumptions runtime vs. Iteration')
+plt.grid(True)
 plt.show()
 
 
