@@ -8,7 +8,7 @@
 import jax.numpy as jnp
 import numpy as np
 
-from jax import grad, make_jaxpr, config
+from jax import grad, make_jaxpr, config, jit
 config.update("jax_enable_x64", True) # enables 64 bit for numeric accuracy
 
 from jax.scipy.linalg import solve
@@ -86,7 +86,7 @@ w = 4
 
 # function for predicting unseen data using kernel ridge regression 
 # isolating this from calc_mse function above 
-# @jit
+@jit
 def KRR(w, lam, x_train, y_train, x_test):
     # calculating kernel gram matrix
     train_diffs = x_train[:, None] - x_train[None, :]
@@ -95,7 +95,7 @@ def KRR(w, lam, x_train, y_train, x_test):
     K_train_reg = K_train + lam * jnp.eye(len(x_train))  # regularized kernel gram matrix 
 
     # solving for the weights 
-    weights = solve(K_train_reg, y_train, assume_a = 'gen') # positive definite and symmetric
+    weights = solve(K_train_reg, y_train, assume_a = 'pos', lower = True) # positive definite and symmetric
     # set argurments in solve for optimized solve: 
     #   assume_a = 'pos', lower=True
       
@@ -117,7 +117,7 @@ KRR_pred = KRR(w = 4, lam = 100, x_train = X_1D, y_train = Y, x_test = x_validat
 # function for calculating mean squared error of KRR prediction on validation data
 # uses global variables for test y values and predicted y values so that jax can be used for gradient calculation in the future
 # all the same as the KRR function except for it returns the prediction mean squared error
-# @jit
+@jit
 def calc_mse(w):
     # calculating kernel gram matrix
     train_diffs = X_1D[:, None] - X_1D[None, :]

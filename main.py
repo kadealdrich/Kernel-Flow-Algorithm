@@ -6,6 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 import jax
 from jax import grad, make_jaxpr
+from jax.scipy.linalg import solve
 import random
 import pandas as pd 
 import matplotlib.pyplot as plt
@@ -197,25 +198,24 @@ def calc_rho(w):
 # function for calculating mean squared error on validation data
 def calc_mse(w):
     # calculating kernel gram matrix
-    diffs = X_1D[:, None] - X_1D[None, :]
-    sqdf = diffs**2  # square diff matrix (nf, nf)
-    K_train = jnp.exp(-w * sqdf)
-    K_train_reg = K_train + lam * jnp.eye(len(X_1D)) 
+    train_diffs = X_1D[:, None] - X_1D[None, :]
+    train_sqdf = train_diffs**2  # square diff matrix (nf, nf)
+    K_train = jnp.exp(-w * train_sqdf) # kernel gram matrix of training data
+    K_train_reg = K_train + lam * jnp.eye(len(X_1D))  # regularized kernel gram matrix 
 
     # solving for the weights 
-    weights = jnp.linalg.solve(K_train_reg, Y) # here Y and X_1D are the training sample of the training sample
+    weights = solve(K_train_reg, Y, assume_a = 'pos', lower=True) # positive definite and symmetric  
+    # sym_pos: sym mean symmetric, pos means positive definite --> jax uses Cholesky decomp which is fast and should help with numerical issues
 
     # predicting unseen validation data
-    x_validation_sq = jnp.sum(x_validation**2, axis=1)[:, None] 
-    x_train2_sq = np.sum(X_1D**2, axis=1)[None, :]
-    sq_dists = x_validation_sq + x_train2_sq - 2 * x_validation @ x_train2.T
-    K_test_train = np.exp(-w * sq_dists) # kernel gram matrix of the train2 and validation x's 
+    train_test_diffs = x_validation[:, None] - X_1D[None, :] # difference matrix between test and train matrices
+    sq_dists = train_test_diffs**2
+    K_test_train = jnp.exp(-w * sq_dists) # kernel gram matrix of the train2 and validation x's 
 
-    y_validation_pred = K_test_train @ weights # KRR prediction of y validation
+    y_pred = K_test_train @ weights # KRR prediction of y validation
 
-    # calculate mean squared error between predicted y and y validation 
-    mse = jnp.mean((y_validation - y_validation_pred) ** 2)
-
+    mse = jnp.mean((y_validation - y_pred)**2) # calculate mean squared error of kernel ridge regression prediction
+    
     return mse
      
 
@@ -502,13 +502,6 @@ def grad_desc_mse_fs(max_iter, w_init):
         w_ts[i + 1] = new_w
 
         print(i, ": rho= ", new_rho)
-        #print("rho", i+1, ": ", rho_ts[i+1])
-    
-    #print("rhos: ", rho_ts)
-    #print("Final rho: ", rho_ts[max_iter]) # printing final rho value
-    #print("Starting gamma: ", w_init)
-    #print("Final gamma: ", w_ts[max_iter])
-    # return data frame of parameters and rho values
 
     df = pd.DataFrame({
         'iteration': np.arange(max_iter + 1),
