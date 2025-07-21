@@ -68,13 +68,18 @@ def KRR(w, lam, x_train, y_train, x_test):
 # function for calculating mean squared error of KRR prediction on validation data
 # uses global variables for test y values and predicted y values so that jax can be used for gradient calculation in the future
 # all the same as the KRR function except for it returns the prediction mean squared error
-lam = 100
-gamma = 5
-desc_parameters_init = [lam, gamma]
-def calc_mse(desc_parameters):
+lam_init = 100
+gamma_init = 5
+desc_parameters_init = [lam_init, gamma_init]
+def calc_mse_rbf(params):
+    lam, gamma = params # two hyperparameters
 
     # get training and validation split
     x_train, x_validation, y_train, y_validation = get_validation_split()
+
+    # convert to jax arrays
+    x_train, x_validation, y_train, y_validation = map(jnp.asarray, (x_train, x_validation, y_train, y_validation))
+    
     # calculating kernel gram matrix
     train_diffs = x_train[:, None] - x_train[None, :]
     train_sqdf = train_diffs**2  # square diff matrix (nf, nf)
@@ -96,4 +101,5 @@ def calc_mse(desc_parameters):
     
     return mse
 
+    
     
