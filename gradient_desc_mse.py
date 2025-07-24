@@ -58,7 +58,7 @@ def KRR(w, lam, x_train, y_train, x_test):
     train_diffs = x_train[:, None] - x_train[None, :]
     train_sqdf = train_diffs**2  # square diff matrix (nf, nf)
     K_train = jnp.exp(-w * train_sqdf) # kernel gram matrix of training data
-    K_train_reg = K_train + lam * jnp.eye(len(x_train))  # regularized kernel gram matrix 
+    K_train_reg = K_train + lam * jnp.eye(len(x_train), dtype = K_train.dtype)  # regularized kernel gram matrix 
 
     # solving for the weights 
     weights = solve(K_train_reg, y_train, assume_a = 'pos', lower = True) # positive definite and symmetric
@@ -79,10 +79,6 @@ def KRR(w, lam, x_train, y_train, x_test):
 # function for calculating mean squared error of KRR prediction on validation data
 # uses global variables for test y values and predicted y values so that jax can be used for gradient calculation in the future
 # all the same as the KRR function except for it returns the prediction mean squared error
-lam_init = 100
-gamma_init = 5
-desc_parameters_init = [lam_init, gamma_init]
-
 
 
 def calc_mse_rbf(params, x_tr, x_val, y_tr, y_val):
@@ -118,11 +114,11 @@ value_and_grad = jit(jax.value_and_grad(calc_mse_rbf_jit))
 KRR_jit = jit(KRR)
 
 
-#################### RECONSTRUCTING GRADIENT DESCENT FUNCTION ##########################
+#################### GRADIENT DESCENT FUNCTION USING JIT ##########################
 
 # Splitting into a gradient step function and gradient descent function 
 @jit
-def make_gd_step_rbf(params, x_tr, x_val, y_tr, y_val, step_size = 0.2, step_style = 'fs'):
+def make_gd_step_rbf_mse(params, x_tr, x_val, y_tr, y_val, step_size = 0.2, step_style = 'fs'):
     
     ###########################################################################################
     #                                                                                         #
@@ -132,19 +128,56 @@ def make_gd_step_rbf(params, x_tr, x_val, y_tr, y_val, step_size = 0.2, step_sty
     #                                                                                         #
     ###########################################################################################
         
-    mse, grad = value_and_grad(params, x_tr, y_tr, x_val, y_val)
+    mse, grad = value_and_grad(params, x_tr, x_val, y_tr, y_val)
     
     if step_style == 'fs':
         params = params - step_size*grad*1000
 
     return params, mse
     
+def run_gd(max_iter, params_init, split_thresh = 1, step_size = 0.2, step_style = 'fs', kernel = 'rbf'):
+    traj = np.zeros((max_iter + 1, len(params_init)))
+    mse_trace = np.zeros(max_iter + 1)
+
+    params = jnp.asarray(params_init, dtype = jnp.float32) # initializing parameters as np array
+
+    # initial validation split
+    x_tr, x_val, y_tr, y_val = get_validation_split()
+    x_tr = jnp.asarray(x_tr, dtype = jnp.float32)
+    y_tr = jnp.asarray(y_tr, dtype = jnp.float32)
+    x_val = jnp.asarray(x_val, dtype = jnp.float32)
+    y_val = jnp.asarray(y_val, dtype = jnp.float32) 
+    
+    for i in range(max_iter):
+        # run descent over max_iter iterations
+        if i % split_thresh == 0: # if threshold met for splitting the validation data 
+
+            x_tr, x_val, y_tr, y_val = get_validation_split()
+
+            x_tr = jnp.asarray(x_tr)
+            y_tr = jnp.asarray(y_tr)
+            x_val = jnp.asarray(x_val)
+            y_val = jnp.asarray(y_val) 
+
+        params, mse = make_gd_step_rbf_mse(params, x_tr, x_val, y_tr, y_val)
+
+        traj[i+1] = np.asarray(params)
+        mse_trace[i+1] = float(mse)
 
 
+    # return data frame of the results from the gradient descent
+    return pd.DataFrame({
+        "iteration": np.arange(max_iter + 1), # column for each iteration
+        "lambda": traj[:,0], # column for the lambda value at each iteration
+        "gamma": traj[:,1], # column for the gamma value at each iteration
+        "mse": mse_trace, # column for the calculated mean squared error at each iteration
+    })
 
-########################################################################################
+###################################################################################
 
 
+# first implementation of gradient descent algorithm using mse as criterion 
+# does not use jit 
 def grad_desc_fs_2d_rbf(max_iter, params_init, step = 0.2, resample_iter = 1):
     # gradient descent on lambda (Ridge regularization parameter) and gamma (rbf kernel parameter)
     traj = np.zeros((max_iter + 1, 2)) # parameter values across iterations
@@ -214,8 +247,15 @@ def grad_desc_fs_2d_rbf(max_iter, params_init, step = 0.2, resample_iter = 1):
     })
 
 
-# test to see if grad_desc_fs_2d_rbf works
-df1 = grad_desc_fs_2d_rbf(max_iter=50, params_init=desc_parameters_init)
+
+
+
+lam_init = 100
+gamma_init = 5
+desc_parameters_init = jnp.array([lam_init, gamma_init], dtype = jnp.float32)
+
+# test to see if run_gd works
+df1 = run_gd(max_iter=50, params_init=desc_parameters_init)
 df1.to_csv("grad_desc_fs_2d_rbf.csv", index=False)
 
 
