@@ -118,7 +118,7 @@ KRR_jit = jit(KRR)
 
 # Splitting into a gradient step function and gradient descent function 
 @jit
-def make_gd_step_rbf_mse(params, x_tr, x_val, y_tr, y_val, step_size = 0.2, step_style = 'fs'):
+def make_gd_step_rbf_mse(params, x_tr, x_val, y_tr, y_val, step_size = 100, step_style = 'fs'):
     
     ###########################################################################################
     #                                                                                         #
@@ -131,7 +131,7 @@ def make_gd_step_rbf_mse(params, x_tr, x_val, y_tr, y_val, step_size = 0.2, step
     mse, grad = value_and_grad(params, x_tr, x_val, y_tr, y_val)
     
     if step_style == 'fs':
-        params = params - step_size*grad*1000
+        params = params - step_size*grad
 
     return params, mse
     
@@ -249,13 +249,14 @@ def grad_desc_fs_2d_rbf(max_iter, params_init, step = 0.2, resample_iter = 1):
 
 
 
-
-lam_init = 100
-gamma_init = 5
+max_iterations = 1000
+lam_init = 10
+gamma_init = 100
 desc_parameters_init = jnp.array([lam_init, gamma_init], dtype = jnp.float32)
+split_threshold = 5
 
 # test to see if run_gd works
-df1 = run_gd(max_iter=50, params_init=desc_parameters_init)
+df1 = run_gd(max_iter = max_iterations, params_init=desc_parameters_init, split_thresh = split_threshold)
 df1.to_csv("grad_desc_fs_2d_rbf.csv", index=False)
 
 
@@ -279,4 +280,15 @@ plt.ylabel('y')
 plt.title('True Y vs KRR prediction on Test Set using RBF Kernel')
 plt.legend(title=f'gamma = {gamma_gd:.3f}, λ = {lam_gd:.3f}, mse = {final_mse:.5f})') 
 plt.tight_layout()
+plt.show()
+
+
+# plot for looking at mse trace 
+fig, ax = plt.subplots()
+ax.plot(df1["iteration"], df1["mse"])
+ax.set_xlabel("Iteration")
+ax.set_ylabel("Mean Squared Error")
+ax.set_title(f"MSE Trace over {max_iterations} steps")
+plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 5') 
+ax.grid(True)  # optional, but often helpful
 plt.show()
