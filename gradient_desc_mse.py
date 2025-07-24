@@ -120,9 +120,9 @@ KRR_jit = jit(KRR)
 
 #################### RECONSTRUCTING GRADIENT DESCENT FUNCTION ##########################
 
-# Splitting into a gradient step function and a for loop
+# Splitting into a gradient step function and gradient descent function 
 @jit
-def make_gd_step(params, x_tr, x_val, y_tr, y_val, step_size = 0.2, step_style = 'fs'):
+def make_gd_step_rbf(params, x_tr, x_val, y_tr, y_val, step_size = 0.2, step_style = 'fs'):
     
     ###########################################################################################
     #                                                                                         #
