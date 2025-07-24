@@ -30,6 +30,7 @@ x_train_first, x_test_first, y_train_first, y_test_first = train_test_split(
 )
 
 
+
 def get_validation_split():
     # use global variable for training data to be split
     # return a new training and validation split
@@ -38,6 +39,10 @@ def get_validation_split():
         test_size = 0.2,
         shuffle=True
     )
+
+
+
+
 
 
 # function for predicting unseen data using kernel ridge regression 
@@ -71,35 +76,110 @@ def KRR(w, lam, x_train, y_train, x_test):
 lam_init = 100
 gamma_init = 5
 desc_parameters_init = [lam_init, gamma_init]
-def calc_mse_rbf(params):
+
+
+
+def calc_mse_rbf(params, x_tr, x_val, y_tr, y_val):
     lam, gamma = params # two hyperparameters
 
-    # get training and validation split
-    x_train, x_validation, y_train, y_validation = get_validation_split()
-
     # convert to jax arrays
-    x_train, x_validation, y_train, y_validation = map(jnp.asarray, (x_train, x_validation, y_train, y_validation))
+    x_tr, x_val, y_tr, y_val = map(jnp.asarray, (x_tr, x_val, y_tr, y_val))
     
     # calculating kernel gram matrix
-    train_diffs = x_train[:, None] - x_train[None, :]
+    train_diffs = x_tr[:, None] - x_tr[None, :]
     train_sqdf = train_diffs**2  # square diff matrix (nf, nf)
     K_train = jnp.exp(-gamma * train_sqdf) # kernel gram matrix of training data
-    K_train_reg = K_train + lam * jnp.eye(len(x_train))  # regularized kernel gram matrix 
+    K_train_reg = K_train + lam * jnp.eye(len(x_tr))  # regularized kernel gram matrix 
 
     # solving for the weights 
-    weights = solve(K_train_reg, y_train, assume_a = 'pos', lower=True) # positive definite and symmetric  
+    weights = solve(K_train_reg, y_tr, assume_a = 'pos', lower=True) # positive definite and symmetric  
     # sym_pos: sym mean symmetric, pos means positive definite --> jax uses Cholesky decomp which is fast and should help with numerical issues
 
     # predicting unseen validation data
-    train_test_diffs = x_validation[:, None] - x_train[None, :] # difference matrix between test and train matrices
+    train_test_diffs = x_val[:, None] - x_tr[None, :] # difference matrix between test and train matrices
     sq_dists = train_test_diffs**2
     K_test_train = jnp.exp(-gamma * sq_dists) # kernel gram matrix of the train2 and validation x's 
 
     y_pred = K_test_train @ weights # KRR prediction of y validation
 
-    mse = jnp.mean((y_validation - y_pred)**2) # calculate mean squared error of kernel ridge regression prediction
+    mse = jnp.mean((y_val - y_pred)**2) # calculate mean squared error of kernel ridge regression prediction
     
     return mse
+
+
+
+def grad_desc_fs_2d_rbf(max_iter, params_init, step = 0.2, resample_iter = 1):
+    # gradient descent on lambda (Ridge regularization parameter) and gamma (rbf kernel parameter)
+    traj = np.zeros((max_iter + 1, 2)) # parameter values across iterations
+    mse_trace = np.zeros(max_iter + 1) # mse loss values to be minimized via gradient descent
+
+    # initial values
+    traj[0] = np.asarray(params_init)
+
+    print("Initial gamma: ", traj[0, 1])
+    print("Initial lambda: ", traj[0, 0])
+
+    # initial validation split
+    x_train, x_validation, y_train, y_validation = get_validation_split()
+
+    # make mse calculation function a function of only parameter vector
+    def mse_fxn(params):
+        return calc_mse_rbf(params, x_tr = x_train, y_tr = y_train, x_val = x_validation, y_val = y_validation)
+    
+    # setting up jax gradient calculation
+    grad_fxn = jax.grad(mse_fxn)
+    
+    # gradient calculation with initial parameters
+    mse_trace[0] = float(mse_fxn(traj[0]))
+    
+    print("Initial MSE: ", mse_trace[0])
+
+
+    for i in range(max_iter):
+        print("Iteration ", i)
+        # for loop controlling gradient descent
+        # runs until the maximum number of iterations is reached 
+
+        if i % resample_iter == 0:
+            
+            # print statement for testing
+            print("Resampling valdation data")
+
+            # getting new validation and training split amongst the training data every resample_iter iterations
+            # only controls how often we resample the data for the mse calculation
+            # larger resample_iter gives nicer trajectory but introduces more bias
+            x_train, x_validation, y_train, y_validation = get_validation_split() # gets new split
+
+            # rebuilding mse function to recalculate using the new validation split 
+            def mse_fxn(params):
+                return calc_mse_rbf(params, x_tr = x_train, y_tr = y_train, x_val = x_validation, y_val = y_validation)
+
+            # rebuilding jax gradient function
+            grad_fxn = jax.grad(mse_fxn)
+
+        # compute gradient
+        grad = np.asarray(grad_fxn(traj[i]))
+        print("gradient: ", grad)
+        # compute gradient step
+        traj[i+1] = traj[i] - step*grad
+
+        # get the new mse related to the new parameters from the gradient step
+        mse_trace[i+1] = float(mse_fxn(traj[i+1]))
+
+        print(f"gamma {i+1}: {traj[i+1, 1]}")
+        print(f"lambda {i+1}: {traj[i+1, 0]}")
+    # return data frame of the results from the gradient descent
+    return pd.DataFrame({
+        "iteration": np.arange(max_iter + 1), # column for each iteration
+        "lambda": traj[:,0], # column for the lambda value at each iteration
+        "gamma": traj[:,1], # column for the gamma value at each iteration
+        "mse": mse_trace, # column for the calculated mean squared error at each iteration
+    })
+
+
+# test to see if grad_desc_fs_2d_rbf works
+df1 = grad_desc_fs_2d_rbf(max_iter=10, params_init=desc_parameters_init)
+df1.to_csv("grad_desc_fs_2d_rbf.csv", index=False)
 
     
     
