@@ -48,6 +48,12 @@ def get_validation_split():
 # function for predicting unseen data using kernel ridge regression 
 # isolating this from calc_mse function above 
 def KRR(w, lam, x_train, y_train, x_test):
+
+    # converting to numpy arrays
+    x_train = jnp.asarray(x_train)
+    y_train = jnp.asarray(y_train)
+    x_test  = jnp.asarray(x_test)
+
     # calculating kernel gram matrix
     train_diffs = x_train[:, None] - x_train[None, :]
     train_sqdf = train_diffs**2  # square diff matrix (nf, nf)
@@ -161,7 +167,7 @@ def grad_desc_fs_2d_rbf(max_iter, params_init, step = 0.2, resample_iter = 1):
         grad = np.asarray(grad_fxn(traj[i]))
         print("gradient: ", grad)
         # compute gradient step
-        traj[i+1] = traj[i] - step*grad
+        traj[i+1] = traj[i] - step*grad*1000 # increasing scale by 2 orders of magnitude 
 
         # get the new mse related to the new parameters from the gradient step
         mse_trace[i+1] = float(mse_fxn(traj[i+1]))
@@ -178,8 +184,28 @@ def grad_desc_fs_2d_rbf(max_iter, params_init, step = 0.2, resample_iter = 1):
 
 
 # test to see if grad_desc_fs_2d_rbf works
-df1 = grad_desc_fs_2d_rbf(max_iter=10, params_init=desc_parameters_init)
+df1 = grad_desc_fs_2d_rbf(max_iter=50, params_init=desc_parameters_init)
 df1.to_csv("grad_desc_fs_2d_rbf.csv", index=False)
 
-    
-    
+
+## running KRR using the gd results
+# using testing data set aside at beginning
+gamma_gd = df1["gamma"].tail(1).item()
+lam_gd = df1["lambda"].tail(1).item()
+
+y_pred = jnp.asarray(KRR(w = gamma_gd, lam = lam_gd, x_train = x_train_first, y_train = y_train_first, x_test = x_test_first)) # converting to numpy array
+y_test_first = jnp.asarray(y_test_first)
+final_mse = jnp.mean((y_pred - y_test_first)**2)
+
+print(f"Final MSE: {final_mse}")
+
+# plotting 
+plt.figure()                       # new figure
+plt.plot(x_test_first, y_test_first, 'o', label='True y', markersize=5)
+plt.plot(x_test_first, y_pred, 'o', label='Predicted y', markersize=5)
+plt.xlabel('x_test')              # label axes
+plt.ylabel('y')
+plt.title('True Y vs KRR prediction on Test Set using RBF Kernel')
+plt.legend(title=f'gamma = {gamma_gd:.3f}, λ = {lam_gd:.3f}, mse = {final_mse:.5f})') 
+plt.tight_layout()
+plt.show()
