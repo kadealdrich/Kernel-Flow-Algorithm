@@ -4,7 +4,7 @@
 import jax.numpy as jnp
 import numpy as np
 import jax
-from jax import grad, make_jaxpr
+from jax import grad, make_jaxpr, jit 
 from jax.scipy.linalg import solve
 import random
 import pandas as pd 
@@ -112,6 +112,37 @@ def calc_mse_rbf(params, x_tr, x_val, y_tr, y_val):
     
     return mse
 
+# jit wrappers for functions 
+calc_mse_rbf_jit = jit(calc_mse_rbf)
+value_and_grad = jit(jax.value_and_grad(calc_mse_rbf_jit))
+KRR_jit = jit(KRR)
+
+
+#################### RECONSTRUCTING GRADIENT DESCENT FUNCTION ##########################
+
+# Splitting into a gradient step function and a for loop
+@jit
+def make_gd_step(params, x_tr, x_val, y_tr, y_val, step_size = 0.2, step_style = 'fs'):
+    
+    ###########################################################################################
+    #                                                                                         #
+    # step_style:                                                                             #
+    #   'fs'    |   Fixed step size to be specified with function call (default = 0.2)        #
+    #   'ls'    |   Line search for finding optimal step size at each iteration automatically #
+    #                                                                                         #
+    ###########################################################################################
+        
+    mse, grad = value_and_grad(params, x_tr, y_tr, x_val, y_val)
+    
+    if step_style == 'fs':
+        params = params - step_size*grad*1000
+
+    return params, mse
+    
+
+
+
+########################################################################################
 
 
 def grad_desc_fs_2d_rbf(max_iter, params_init, step = 0.2, resample_iter = 1):
