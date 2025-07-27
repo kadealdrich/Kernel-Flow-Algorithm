@@ -16,7 +16,7 @@ from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import mean_squared_error
 
 random.seed(51)
-jax.random.PRNGKey(51)
+jax.random.PRNGKey(51) # jax key for getting random permutation of coarse indices
 
 
 # loading in the data 
@@ -162,3 +162,36 @@ def calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse):
     #print("rho=", rho, ", w=", w)
 
     return rho
+
+
+# function for getting rho penalized by mse 
+def calc_pen_crit(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 1):
+    rho = calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse)
+    mse = calc_mse_rbf(params, x_tr, x_val, y_tr, y_val)
+    return rho + mse_weight*mse
+    
+
+# jit wrappers for functions 
+calc_crit_rbf_jit = jit(calc_pen_crit)
+value_and_grad = jit(jax.value_and_grad(calc_crit_rbf_jit))
+KRR_jit = jit(KRR)
+
+
+# function for getting gradient step using rho criterion penalized by mse
+@jit
+def make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse, y_fine, y_coarse, step_size = 100, step_style = 'fs'):
+    
+    ###########################################################################################
+    #                                                                                         #
+    # step_style:                                                                             #
+    #   'fs'    |   Fixed step size to be specified with function call (default = 0.2)        #
+    #   'ls'    |   Line search for finding optimal step size at each iteration automatically #
+    #                                                                                         #
+    ###########################################################################################
+        
+    crit, grad = value_and_grad(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 1)
+    
+    if step_style == 'fs':
+        params = params - step_size*grad
+
+    return params, crit
