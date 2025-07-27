@@ -16,7 +16,7 @@ from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import mean_squared_error
 
 random.seed(51)
-
+jax.random.PRNGKey(51)
 
 
 # loading in the data 
@@ -48,8 +48,14 @@ def get_validation_split():
 
 
 # function for getting new coarse and fine samples for rho criterion
-def get_samples_rho():
-    pass
+def get_coarse_indices(key, n_train, coarse_prop = 0.5):
+    # ASSUMES FINE SAMPLE IS ALL TRAINING DATA 
+    # gets a random coarse sample equal to a random selection of round(0.5 * len(fine_sample)) indices
+    key, subkey = jax.random.split(key)
+    n_coarse = jnp.maximum(1, jnp.round(coarse_prop*n_train).astype(jnp.int32))
+    perm = jax.random.permutation(subkey, n_train) # gets random permutation 
+    coarse_indices = perm[:n_coarse]
+    return coarse_indices, key # anytime this is called have to update key value
 
 
 # function for predicting unseen data using kernel ridge regression 
