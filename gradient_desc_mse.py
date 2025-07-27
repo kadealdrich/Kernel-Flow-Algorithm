@@ -1,3 +1,5 @@
+### Gradient descent algorithm for kernel optimization using KRR validation MSE as the criterion
+
 # Kade ALDRICH
 # Internship 2025
 

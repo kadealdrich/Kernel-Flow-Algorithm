@@ -17,10 +17,14 @@ from sklearn.metrics import mean_squared_error
 
 random.seed(51)
 
+
+
 # loading in the data 
 df_experiment = pd.read_csv("test-functions.csv")
 y = df_experiment['y_smooth'] # using smooth cosine y 
 x = df_experiment['x']
+
+
 
 # original training and testing split
 # testing data not to be touched until validation the results from the gradient descent 
@@ -32,7 +36,7 @@ x_train_first, x_test_first, y_train_first, y_test_first = train_test_split(
 )
 
 
-
+# function for getting new split of validation and training data for mse criterion calculation 
 def get_validation_split():
     # use global variable for training data to be split
     # return a new training and validation split
@@ -42,6 +46,10 @@ def get_validation_split():
         shuffle=True
     )
 
+
+# function for getting new coarse and fine samples for rho criterion
+def get_samples_rho():
+    pass
 
 
 # function for predicting unseen data using kernel ridge regression 
@@ -74,3 +82,77 @@ def KRR(w, lam, x_train, y_train, x_test):
     y_pred = K_test_train @ weights # KRR prediction of y validation
 
     return y_pred 
+
+
+# function for calculating mean squared error of KRR prediction on validation data
+# uses global variables for test y values and predicted y values so that jax can be used for gradient calculation in the future
+# all the same as the KRR function except for it returns the prediction mean squared error
+def calc_mse_rbf(params, x_tr, x_val, y_tr, y_val):
+    lam, gamma = params # two hyperparameters
+
+    # convert to jax arrays
+    x_tr, x_val, y_tr, y_val = map(jnp.asarray, (x_tr, x_val, y_tr, y_val))
+    
+    # calculating kernel gram matrix
+    train_diffs = x_tr[:, None] - x_tr[None, :]
+    train_sqdf = train_diffs**2  # square diff matrix (nf, nf)
+    K_train = jnp.exp(-gamma * train_sqdf) # kernel gram matrix of training data
+    K_train_reg = K_train + lam * jnp.eye(len(x_tr))  # regularized kernel gram matrix 
+
+    # solving for the weights 
+    weights = solve(K_train_reg, y_tr, assume_a = 'pos', lower=True) # positive definite and symmetric  
+    # sym_pos: sym mean symmetric, pos means positive definite --> jax uses Cholesky decomp which is fast and should help with numerical issues
+
+    # predicting unseen validation data
+    train_test_diffs = x_val[:, None] - x_tr[None, :] # difference matrix between test and train matrices
+    sq_dists = train_test_diffs**2
+    K_test_train = jnp.exp(-gamma * sq_dists) # kernel gram matrix of the train2 and validation x's 
+
+    y_pred = K_test_train @ weights # KRR prediction of y validation
+
+    mse = jnp.mean((y_val - y_pred)**2) # calculate mean squared error of kernel ridge regression prediction
+    
+    return mse
+
+
+
+# function for calculating rho criterion 
+def calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse):
+    lam, gamma = params # two hyperparameters
+
+    # converting to jax numpy arrays 
+    x_f, x_c, y_f, y_c = map(jnp.asarray, (x_fine, x_coarse, y_fine, y_coarse))
+
+    ## constructing kernel Gram matrices
+
+    # calculating difference matrices
+    diffs_f = x_f[:, None] - x_f[None:,]
+    diffs_c = x_c[:, None] - x_c[None:,]
+
+    sqdf = jnp.square(diffs_f)
+    sqdc = jnp.square(diffs_c)
+
+    Kf = jnp.exp(-gamma * sqdf) # fine sample kernel Gram matrix
+    Kc = jnp.exp(-gamma * sqdc) # coarse sample kernel Gram matrix
+
+    Kf_reg = Kf + lam * jnp.eye(len(x_fine)) # regularized kernel Gram matrices
+    Kc_reg = Kc + lam * jnp.eye(len(x_coarse))
+
+    # calculating rho 
+    # compute (Reg)^{-1} and then its square
+    inv_f = jnp.linalg.inv(Kf_reg)
+    inv_c = jnp.linalg.inv(Kc_reg)
+
+    Kf_inv2 = inv_f @ inv_f
+    Kc_inv2 = inv_c @ inv_c
+
+    # quadratic forms
+    N = y_coarse.T @ (Kc @ Kc_inv2) @ y_coarse # numerator
+    D = y_fine.T @ (Kf @ Kf_inv2) @ y_fine # denominator
+
+    # final rho
+    ### Not sure if should multiply by nf/nc or not 
+    rho = 1.0 - (N / D)
+    #print("rho=", rho, ", w=", w)
+
+    return rho
