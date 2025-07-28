@@ -16,7 +16,7 @@ from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import mean_squared_error
 
 random.seed(51)
-jax.random.PRNGKey(51) # jax key for getting random permutation of coarse indices
+key_init = jax.random.PRNGKey(51) # jax key for getting random permutation of coarse indices
 
 
 # loading in the data 
@@ -179,7 +179,7 @@ KRR_jit = jit(KRR)
 
 # function for getting gradient step using rho criterion penalized by mse
 @jit
-def make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse, y_fine, y_coarse, step_size = 100, step_style = 'fs'):
+def make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse, y_fine, y_coarse, mse_weight, step_size = 100, step_style = 'fs'):
     
     ###########################################################################################
     #                                                                                         #
@@ -189,9 +189,73 @@ def make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse
     #                                                                                         #
     ###########################################################################################
         
-    crit, grad = value_and_grad(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 1)
+    crit, grad = value_and_grad(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight)
     
     if step_style == 'fs':
         params = params - step_size*grad
 
     return params, crit
+
+
+# function for running gradient descent
+def run_gd(max_iter, params_init, key, mse_weight, split_thresh = 1, step_size = 0.2, step_style = 'fs', kernel = 'rbf'):
+    traj = np.zeros((max_iter + 1, len(params_init)))
+    crit_trace = np.zeros(max_iter + 1)
+    params = jnp.asarray(params_init, dtype = jnp.float32) # initializing parameters as np array
+
+    # initial validation split
+    x_tr, x_val, y_tr, y_val = get_validation_split()
+    x_fine = x
+    y_fine = y
+
+    x_tr = jnp.asarray(x_tr, dtype = jnp.float32)
+    y_tr = jnp.asarray(y_tr, dtype = jnp.float32)
+    x_val = jnp.asarray(x_val, dtype = jnp.float32)
+    y_val = jnp.asarray(y_val, dtype = jnp.float32) 
+    x_fine = jnp.asarray(x_fine, dtype=jnp.float32)
+    y_fine = jnp.asarray(y_fine, dtype=jnp.float32)
+    
+
+    coarse_indices, key = get_coarse_indices(key=key, n_train = len(x_fine))
+
+    # get the coarse subset for calculating rho 
+    x_coarse = x_fine[coarse_indices]
+    y_coarse = y_fine[coarse_indices]
+
+    # ensure they are jnp arrays of specific float datatype
+    x_coarse = jnp.asarray(x_coarse, dtype=jnp.float32)
+    y_coarse = jnp.asarray(y_coarse, dtype=jnp.float32)
+
+    for i in range(max_iter):
+    # run descent over max_iter iterations
+        if i % split_thresh == 0: # if threshold met for splitting the validation data 
+
+            x_tr, x_val, y_tr, y_val = get_validation_split()
+
+            x_tr = jnp.asarray(x_tr)
+            y_tr = jnp.asarray(y_tr)
+            x_val = jnp.asarray(x_val)
+            y_val = jnp.asarray(y_val) 
+
+        if kernel == 'rbf':
+            params, mse = make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse, y_fine, y_coarse, mse_weight, step_size, step_style)
+
+        traj[i+1] = np.asarray(params)
+        crit_trace[i+1] = float(mse)
+
+
+    # return data frame of the results from the gradient descent
+    return pd.DataFrame({
+        "iteration": np.arange(max_iter + 1), # column for each iteration
+        "lambda": traj[:,0], # column for the lambda value at each iteration
+        "gamma": traj[:,1], # column for the gamma value at each iteration
+        "criterion": crit_trace, # column for the calculated mean squared error at each iteration
+    })
+
+
+lam_init = 50
+gamma_init = 10
+desc_parameters_init = jnp.array([lam_init, gamma_init], dtype = jnp.float32)
+split_threshold = 5
+
+run_gd(max_iter = 10, params_init = desc_parameters_init, key = key_init, mse_weight = 1, )   
