@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import mean_squared_error
+from functools import partial
 
 random.seed(51)
 key_init = jax.random.PRNGKey(51) # jax key for getting random permutation of coarse indices
@@ -178,7 +179,7 @@ KRR_jit = jit(KRR)
 
 
 # function for getting gradient step using rho criterion penalized by mse
-@jit
+@partial(jit, static_argnames=("step_style",))
 def make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse, y_fine, y_coarse, mse_weight, step_size = 100, step_style = 'fs'):
     
     ###########################################################################################
@@ -198,7 +199,7 @@ def make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse
 
 
 # function for running gradient descent
-def run_gd(max_iter, params_init, key, mse_weight, split_thresh = 1, step_size = 0.2, step_style = 'fs', kernel = 'rbf'):
+def run_gd(max_iter, params_init, key, mse_weight, step_size, split_thresh = 1, step_style = 'fs', kernel = 'rbf'):
     traj = np.zeros((max_iter + 1, len(params_init)))
     crit_trace = np.zeros(max_iter + 1)
     params = jnp.asarray(params_init, dtype = jnp.float32) # initializing parameters as np array
@@ -238,10 +239,10 @@ def run_gd(max_iter, params_init, key, mse_weight, split_thresh = 1, step_size =
             y_val = jnp.asarray(y_val) 
 
         if kernel == 'rbf':
-            params, mse = make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse, y_fine, y_coarse, mse_weight, step_size, step_style)
+            params, crit = make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse, y_fine, y_coarse, mse_weight, step_size, step_style)
 
         traj[i+1] = np.asarray(params)
-        crit_trace[i+1] = float(mse)
+        crit_trace[i+1] = float(crit)
 
 
     # return data frame of the results from the gradient descent
@@ -258,4 +259,36 @@ gamma_init = 10
 desc_parameters_init = jnp.array([lam_init, gamma_init], dtype = jnp.float32)
 split_threshold = 5
 
-run_gd(max_iter = 10, params_init = desc_parameters_init, key = key_init, mse_weight = 1, )   
+# running gradient descent algorithm
+df = run_gd(max_iter = 10, 
+       params_init = desc_parameters_init, 
+       key = key_init, 
+       mse_weight = 1,  
+       step_size = 100,
+       split_thresh = 1,
+       step_style='fs',
+       kernel = 'rbf'
+       )   
+
+# df.to_csv("gd_mse_pen.csv", index=False)
+
+# plot for looking at mse trace 
+fig, ax = plt.subplots()
+ax.plot(df["iteration"], df["criterion"])
+ax.set_xlabel("Iteration")
+ax.set_ylabel("Mean Squared Error")
+ax.set_title(f"Criterion Trace")
+plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1') 
+ax.grid(True)  # optional, but often helpful
+plt.show()
+
+# plot for looking at mse trace 
+fig, ax = plt.subplots()
+ax.plot(df["iteration"], df["lambda"])
+ax.plot(df["iteration"], df["gamma"])
+ax.set_xlabel("Iteration")
+ax.set_ylabel("Parameter Values")
+ax.set_title(f"Trace of Parameters")
+plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1') 
+ax.grid(True)  # optional, but often helpful
+plt.show()
