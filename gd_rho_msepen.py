@@ -122,6 +122,39 @@ def calc_mse_rbf(params, x_tr, x_val, y_tr, y_val):
     return mse
 
 
+# function for calculating Normlized and bounded mse 
+@jit
+def calc_nmse_rbf(params, x_tr, x_val, y_tr, y_val):
+    lam, gamma = params # two hyperparameters
+
+    # convert to jax arrays
+    x_tr, x_val, y_tr, y_val = map(jnp.asarray, (x_tr, x_val, y_tr, y_val))
+    
+    # calculating kernel gram matrix
+    train_diffs = x_tr[:, None] - x_tr[None, :]
+    train_sqdf = train_diffs**2  # square diff matrix (nf, nf)
+    K_train = jnp.exp(-gamma * train_sqdf) # kernel gram matrix of training data
+    K_train_reg = K_train + lam * jnp.eye(len(x_tr))  # regularized kernel gram matrix 
+
+    # solving for the weights 
+    weights = solve(K_train_reg, y_tr, assume_a = 'pos', lower=True) # positive definite and symmetric  
+    # sym_pos: sym mean symmetric, pos means positive definite --> jax uses Cholesky decomp which is fast and should help with numerical issues
+
+    # predicting unseen validation data
+    train_test_diffs = x_val[:, None] - x_tr[None, :] # difference matrix between test and train matrices
+    sq_dists = train_test_diffs**2
+    K_test_train = jnp.exp(-gamma * sq_dists) # kernel gram matrix of the train2 and validation x's 
+
+    y_pred = K_test_train @ weights # KRR prediction of y validation
+
+    mse = jnp.mean((y_val - y_pred)**2) # calculate mean squared error of kernel ridge regression prediction
+    
+    var = jnp.var(y_tr) + 1e-8 # adds epsilon because this goes in denominator
+    nmse = mse / var
+    bounded_nmse = 1.0 - jnp.exp(-nmse)
+
+    return bounded_nmse
+
 
 # function for calculating rho criterion 
 def calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse):
@@ -168,7 +201,7 @@ def calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse):
 # function for getting rho penalized by mse 
 def calc_pen_crit(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 1):
     rho = calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse)
-    mse = calc_mse_rbf(params, x_tr, x_val, y_tr, y_val)
+    mse = calc_nmse_rbf(params, x_tr, x_val, y_tr, y_val)
     return rho + mse_weight*mse
     
 
@@ -270,7 +303,7 @@ split_threshold = 5
 df = run_gd(max_iter = 200,
        params_init = desc_parameters_init, 
        key = key_init, 
-       mse_weight = 250,  
+       mse_weight = 350,  
        step_size = 1,
        split_thresh = 10,
        step_style='fs',
