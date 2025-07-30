@@ -226,8 +226,15 @@ def run_gd(max_iter, params_init, key, mse_weight, step_size, split_thresh = 1, 
     # ensure they are jnp arrays of specific float datatype
     x_coarse = jnp.asarray(x_coarse, dtype=jnp.float32)
     y_coarse = jnp.asarray(y_coarse, dtype=jnp.float32)
+    
+    # set initial parameter values in trajectory
+    traj[0,:] = jnp.asarray(params_init, dtype=jnp.float32)
+    
+    # calculate initial crit
+    init_crit = calc_pen_crit(params= params_init, x_fine=x_fine, x_coarse=x_coarse, y_fine = y_fine, y_coarse = y_coarse, x_tr = x_tr, x_val = x_val, y_tr = y_tr, y_val = y_val)
+    crit_trace[0] = init_crit
 
-    for i in range(max_iter):
+    for i in range(1, max_iter):
     # run descent over max_iter iterations
         if i % split_thresh == 0: # if threshold met for splitting the validation data 
 
@@ -260,11 +267,11 @@ desc_parameters_init = jnp.array([lam_init, gamma_init], dtype = jnp.float32)
 split_threshold = 5
 
 # running gradient descent algorithm
-df = run_gd(max_iter = 10, 
+df = run_gd(max_iter = 200,
        params_init = desc_parameters_init, 
        key = key_init, 
-       mse_weight = 1,  
-       step_size = 100,
+       mse_weight = 100,  
+       step_size = 50,
        split_thresh = 1,
        step_style='fs',
        kernel = 'rbf'
@@ -276,7 +283,7 @@ df = run_gd(max_iter = 10,
 fig, ax = plt.subplots()
 ax.plot(df["iteration"], df["criterion"])
 ax.set_xlabel("Iteration")
-ax.set_ylabel("Mean Squared Error")
+ax.set_ylabel("Rho with MSE Penalty")
 ax.set_title(f"Criterion Trace")
 plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1') 
 ax.grid(True)  # optional, but often helpful
