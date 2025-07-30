@@ -270,9 +270,9 @@ split_threshold = 5
 df = run_gd(max_iter = 200,
        params_init = desc_parameters_init, 
        key = key_init, 
-       mse_weight = 100,  
-       step_size = 50,
-       split_thresh = 1,
+       mse_weight = 250,  
+       step_size = 1,
+       split_thresh = 10,
        step_style='fs',
        kernel = 'rbf'
        )   
@@ -298,4 +298,34 @@ ax.set_ylabel("Parameter Values")
 ax.set_title(f"Trace of Parameters")
 plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1') 
 ax.grid(True)  # optional, but often helpful
+plt.show()
+
+# assessing gradient blow up or NaN
+finite = np.isfinite(df['criterion'])
+last_good = df.loc[finite, 'iteration'].max()
+# Looking for 17-18
+print(f"Last finite criterion at iteration {last_good}")
+print("Number of NaNs:", (~finite).sum())
+
+# looking at fit of final KRR
+## running KRR using the gd results
+# using testing data set aside at beginning
+gamma_gd = df["gamma"].tail(1).item()
+lam_gd = df["lambda"].tail(1).item()
+
+y_pred = jnp.asarray(KRR(w = gamma_gd, lam = lam_gd, x_train = x_train_first, y_train = y_train_first, x_test = x_test_first)) # converting to numpy array
+y_test_first = jnp.asarray(y_test_first)
+final_mse = jnp.mean((y_pred - y_test_first)**2)
+
+print(f"Final MSE: {final_mse}")
+
+# plotting 
+plt.figure()                       # new figure
+plt.plot(x_test_first, y_test_first, 'o', label='True y', markersize=5)
+plt.plot(x_test_first, y_pred, 'o', label='Predicted y', markersize=5)
+plt.xlabel('x_test')              # label axes
+plt.ylabel('y')
+plt.title('True Y vs KRR prediction on Test Set using RBF Kernel')
+plt.legend(title=f'gamma = {gamma_gd:.3f}, λ = {lam_gd:.3f}, mse = {final_mse:.5f})') 
+plt.tight_layout()
 plt.show()
