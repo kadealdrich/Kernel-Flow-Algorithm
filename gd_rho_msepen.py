@@ -20,6 +20,19 @@ random.seed(51)
 key_init = jax.random.PRNGKey(51) # jax key for getting random permutation of coarse indices
 
 
+###############################################################################################
+
+#                               INITIAL HYPERPARAMETERS                                       #
+
+###############################################################################################
+
+step_init = 1.0 # inital step size
+decay_rate = 0.5 # step size decay factor
+decay_threshold = 20 # number of iterations before decaying
+
+###############################################################################################
+
+
 # loading in the data 
 df_experiment = pd.read_csv("test-functions.csv")
 y = df_experiment['y_smooth'] # using smooth cosine y 
@@ -123,7 +136,6 @@ def calc_mse_rbf(params, x_tr, x_val, y_tr, y_val):
 
 
 # function for calculating Normlized and bounded mse 
-@jit
 def calc_nmse_rbf(params, x_tr, x_val, y_tr, y_val):
     lam, gamma = params # two hyperparameters
 
@@ -202,8 +214,6 @@ def calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse):
 def calc_pen_crit(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 0.5):
     rho = calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse)
     nmse = calc_nmse_rbf(params, x_tr, x_val, y_tr, y_val)
-
-    print(f"rho={rho} | nmse={nmse}")
     return 0.5*rho + mse_weight*nmse
     
 
@@ -215,7 +225,7 @@ KRR_jit = jit(KRR)
 
 # function for getting gradient step using rho criterion penalized by mse
 @partial(jit, static_argnames=("step_style",))
-def make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse, y_fine, y_coarse, mse_weight, step_size = 100, step_style = 'fs'):
+def make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse, y_fine, y_coarse, mse_weight, step_size, step_style = 'fs'):
     
     ###########################################################################################
     #                                                                                         #
@@ -233,8 +243,15 @@ def make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse
     return params, crit
 
 
+# function for decaying the gradient descent step size
+def step_decay(i, tau_current=step_init, decay = decay_rate, k = decay_threshold):
+    return tau_current * (decay ** (i // k))
+
+
+
+
 # function for running gradient descent
-def run_gd(max_iter, params_init, key, mse_weight, step_size, split_thresh = 1, step_style = 'fs', kernel = 'rbf'):
+def run_gd(max_iter, params_init, key, mse_weight, split_thresh = 1, step_style = 'fs', kernel = 'rbf'):
     traj = np.zeros((max_iter + 1, len(params_init)))
     crit_trace = np.zeros(max_iter + 1)
     params = jnp.asarray(params_init, dtype = jnp.float32) # initializing parameters as np array
@@ -271,6 +288,9 @@ def run_gd(max_iter, params_init, key, mse_weight, step_size, split_thresh = 1, 
 
     for i in range(1, max_iter):
     # run descent over max_iter iterations
+
+        step_now = jnp.asarray(step_decay(i), dtype=jnp.float32) # getting step size according to decay rule
+        
         if i % split_thresh == 0: # if threshold met for splitting the validation data 
 
             x_tr, x_val, y_tr, y_val = get_validation_split()
@@ -281,7 +301,8 @@ def run_gd(max_iter, params_init, key, mse_weight, step_size, split_thresh = 1, 
             y_val = jnp.asarray(y_val) 
 
         if kernel == 'rbf':
-            params, crit = make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse, y_fine, y_coarse, mse_weight, step_size, step_style)
+            # making step with step size from the decay rule
+            params, crit = make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse, y_fine, y_coarse, mse_weight, step_now, step_style)
 
         traj[i+1] = np.asarray(params)
         crit_trace[i+1] = float(crit)
@@ -296,17 +317,16 @@ def run_gd(max_iter, params_init, key, mse_weight, step_size, split_thresh = 1, 
     })
 
 
-lam_init = 1
-gamma_init = 1
+lam_init = 50
+gamma_init = 5
 desc_parameters_init = jnp.array([lam_init, gamma_init], dtype = jnp.float32)
 split_threshold = 5
 
 # running gradient descent algorithm
-df = run_gd(max_iter = 1000,
+df = run_gd(max_iter = 100,
        params_init = desc_parameters_init, 
        key = key_init, 
-       mse_weight = 1,  
-       step_size = 0.2,
+       mse_weight = 0.5,  
        split_thresh = 1,
        step_style='fs',
        kernel = 'rbf'
