@@ -187,8 +187,8 @@ def calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse):
     Kc_inv2 = inv_c @ inv_c
 
     # quadratic forms
-    N = y_coarse.T @ (Kc @ Kc_inv2) @ y_coarse # numerator
-    D = y_fine.T @ (Kf @ Kf_inv2) @ y_fine # denominator
+    N = y_c.T @ (Kc @ Kc_inv2) @ y_c # numerator
+    D = y_f.T @ (Kf @ Kf_inv2) @ y_f # denominator
 
     # final rho
     ### Not sure if should multiply by nf/nc or not 
@@ -199,10 +199,12 @@ def calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse):
 
 
 # function for getting rho penalized by mse 
-def calc_pen_crit(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 1):
+def calc_pen_crit(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 0.5):
     rho = calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse)
-    mse = calc_nmse_rbf(params, x_tr, x_val, y_tr, y_val)
-    return rho + mse_weight*mse
+    nmse = calc_nmse_rbf(params, x_tr, x_val, y_tr, y_val)
+
+    print(f"rho={rho} | nmse={nmse}")
+    return 0.5*rho + mse_weight*nmse
     
 
 # jit wrappers for functions 
@@ -294,18 +296,18 @@ def run_gd(max_iter, params_init, key, mse_weight, step_size, split_thresh = 1, 
     })
 
 
-lam_init = 50
-gamma_init = 10
+lam_init = 1
+gamma_init = 1
 desc_parameters_init = jnp.array([lam_init, gamma_init], dtype = jnp.float32)
 split_threshold = 5
 
 # running gradient descent algorithm
-df = run_gd(max_iter = 200,
+df = run_gd(max_iter = 1000,
        params_init = desc_parameters_init, 
        key = key_init, 
-       mse_weight = 350,  
-       step_size = 1,
-       split_thresh = 10,
+       mse_weight = 1,  
+       step_size = 0.2,
+       split_thresh = 1,
        step_style='fs',
        kernel = 'rbf'
        )   
