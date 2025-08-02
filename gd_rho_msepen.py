@@ -28,7 +28,8 @@ key_init = jax.random.PRNGKey(51) # jax key for getting random permutation of co
 
 step_init = 1.0 # inital step size
 decay_rate = 0.5 # step size decay factor
-decay_threshold = 200 # number of iterations before decaying
+decay_threshold = 50 # number of iterations before decaying
+lam_fixed = 10
 
 ###############################################################################################
 
@@ -36,8 +37,8 @@ decay_threshold = 200 # number of iterations before decaying
 # loading in the data 
 df_experiment = pd.read_csv("test-functions.csv")
 #y = df_experiment['y_smooth'] # using smooth cosine y 
-y = df_experiment['y_hfreq'] # high frequency, difficult y 
-x = df_experiment['x']
+y = df_experiment['y_hfreq'].to_numpy(dtype=np.float32) # high frequency, difficult y 
+x = df_experiment['x'].to_numpy(dtype=np.float32)
 
 
 
@@ -218,10 +219,14 @@ def calc_pen_crit(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr,
     nmse = calc_nmse_rbf(params, x_tr, x_val, y_tr, y_val)
     return rho + mse_weight*nmse
     
+def pen_crit_gamma(gamma, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 0.5):
+    params = (lam_fixed, gamma)
+    return calc_pen_crit(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight)
 
 # jit wrappers for functions 
-calc_crit_rbf_jit = jit(calc_pen_crit)
-value_and_grad = jit(jax.value_and_grad(calc_crit_rbf_jit))
+pen_crit_gamma_jit = jit(pen_crit_gamma)
+#calc_crit_rbf_jit = jit(calc_pen_crit)
+value_and_grad = jit(jax.value_and_grad(pen_crit_gamma_jit, argnums=0))
 KRR_jit = jit(KRR)
 
 
@@ -243,6 +248,26 @@ def make_gd_step_rbf_pen_crit(params, x_tr, x_val, y_tr, y_val, x_fine, x_coarse
         params = params - step_size*grad
 
     return params, crit
+
+
+# function for making gd step only updating gamma for rbf kernel
+@jit
+def make_gd_step_gamma(gamma, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight, step_size, step_style = 'fs'):
+    
+    ###########################################################################################
+    #                                                                                         #
+    # step_style:                                                                             #
+    #   'fs'    |   Fixed step size to be specified with function call (default = 0.2)        #
+    #   'ls'    |   Line search for finding optimal step size at each iteration automatically #
+    #                                                                                         #
+    ###########################################################################################
+        
+    crit, grad = value_and_grad(gamma, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight)
+    
+    if step_style == 'fs':
+        new_gamma = gamma - step_size*grad
+
+    return new_gamma, crit
 
 
 # function for decaying the gradient descent step size
@@ -325,64 +350,257 @@ gamma_init = 50
 desc_parameters_init = jnp.array([lam_init, gamma_init], dtype = jnp.float32)
 
 # running gradient descent algorithm
-df = run_gd(max_iter = 100,
-       params_init = desc_parameters_init, 
-       key = key_init, 
-       mse_weight = 1.0,  
-       split_thresh = 99999999,
-       step_style='fs',
-       kernel = 'rbf'
-       )   
+#df = run_gd(max_iter = 100,
+#       params_init = desc_parameters_init, 
+#       key = key_init, 
+#       mse_weight = 1.0,  
+#       split_thresh = 9999999,
+#       step_style='fs',
+#       kernel = 'rbf'
+#       )   
 
-# df.to_csv("gd_mse_pen.csv", index=False)
 
-# plot for looking at mse trace 
-fig, ax = plt.subplots()
-ax.plot(df["iteration"], df["criterion"])
-ax.set_xlabel("Iteration")
-ax.set_ylabel("Rho with MSE Penalty")
-ax.set_title(f"Criterion Trace")
-plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1000') 
-ax.grid(True)  # optional, but often helpful
-plt.show()
+# gradient descent for only changing gamma
+def run_gd_gamma(max_iter, gamma_init, key, mse_weight=0.5, split_thresh=1):
+    traj = np.zeros(max_iter + 1, dtype=np.float32)
+    loss_trace = np.zeros_like(traj)
 
-# plot for looking at mse trace 
-fig, ax = plt.subplots()
-ax.plot(df["iteration"], df["lambda"])
-ax.plot(df["iteration"], df["gamma"])
-ax.set_xlabel("Iteration")
-ax.set_ylabel("Parameter Values")
-ax.set_title(f"Trace of Parameters")
-plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1000') 
-ax.grid(True)  # optional, but often helpful
-plt.show()
+    gamma = jnp.asarray(gamma_init, dtype=jnp.float32)
+    # do first split just once, jit takes care of device transfer
+    x_tr, x_val, y_tr, y_val = get_validation_split()
 
-# assessing gradient blow up or NaN
-finite = np.isfinite(df['criterion'])
-last_good = df.loc[finite, 'iteration'].max()
-# Looking for 17-18
-print(f"Last finite criterion at iteration {last_good}")
-print("Number of NaNs:", (~finite).sum())
+    # converting to numpy arrays of float32 datatype
+    x_tr = jnp.asarray(x_tr, dtype = jnp.float32)
+    y_tr = jnp.asarray(y_tr, dtype = jnp.float32)
+    x_val = jnp.asarray(x_val, dtype = jnp.float32)
+    y_val = jnp.asarray(y_val, dtype = jnp.float32) 
+    
+    # x_fine is the same as x_tr
+    # it used to be different so this is a quick fix to make sure everything else still works
+    x_fine = x_tr
+    y_fine = y_tr
 
-# looking at fit of final KRR
-## running KRR using the gd results
-# using testing data set aside at beginning
-gamma_gd = df["gamma"].tail(1).item()
-lam_gd = df["lambda"].tail(1).item()
 
-y_pred = jnp.asarray(KRR(w = gamma_gd, lam = lam_gd, x_train = x_train_first, y_train = y_train_first, x_test = x_test_first)) # converting to numpy array
-y_test_first = jnp.asarray(y_test_first)
-final_mse = jnp.mean((y_pred - y_test_first)**2)
+    coarse_idx, key = get_coarse_indices(key, len(x_fine))
+    x_coarse, y_coarse = x_fine[coarse_idx], y_fine[coarse_idx]
 
-print(f"Final MSE: {final_mse}")
+    # initial loss
+    loss_trace[0] = pen_crit_gamma_jit(gamma,
+                                       x_fine, x_coarse, y_fine, y_coarse,
+                                       x_tr,   x_val,    y_tr,   y_val,
+                                       mse_weight)
+    traj[0] = gamma
 
-# plotting 
-plt.figure()                       # new figure
-plt.plot(x_test_first, y_test_first, 'o', label='True y', markersize=5)
-plt.plot(x_test_first, y_pred, 'o', label='Predicted y', markersize=5)
-plt.xlabel('x_test')              # label axes
-plt.ylabel('y')
-plt.title('True Y vs KRR prediction on Test Set using RBF Kernel')
-plt.legend(title=f'gamma = {gamma_gd:.3f}, λ = {lam_gd:.3f}, mse = {final_mse:.5f})') 
-plt.tight_layout()
-plt.show()
+    for i in range(1, max_iter + 1):
+        step = step_init * decay_rate ** (i // decay_threshold)
+        if i % split_thresh == 0:
+            # optional re-split / re-sample
+            x_tr, x_val, y_tr, y_val = get_validation_split()
+            x_tr = jnp.asarray(x_tr, dtype = jnp.float32)
+            y_tr = jnp.asarray(y_tr, dtype = jnp.float32)
+            x_val = jnp.asarray(x_val, dtype = jnp.float32)
+            y_val = jnp.asarray(y_val, dtype = jnp.float32) 
+            x_fine, y_fine = map(jnp.asarray, (x_tr, y_tr))
+            coarse_idx, key = get_coarse_indices(key, len(x_fine))
+            x_coarse, y_coarse = x_fine[coarse_idx], y_fine[coarse_idx]
+
+        gamma, loss = make_gd_step_gamma(gamma,
+                                    x_fine, x_coarse, y_fine, y_coarse,
+                                    x_tr,   x_val,    y_tr,   y_val,
+                                    mse_weight, step)
+        traj[i]       = gamma
+        loss_trace[i] = loss
+
+    return pd.DataFrame({"iteration": np.arange(max_iter+1),
+                         "gamma": traj,
+                         "criterion": loss_trace})
+
+
+
+
+#df.to_csv("gd_mse_pen.csv", index=False)
+
+
+
+
+#########################################   RESULTS   #############################################
+
+
+
+# FUNCTIONS FOR PLOTTING RESULTS
+
+def plot_run_gd_gamma(
+    df,
+    *,
+    mse_weight: float,
+    decay_interval: int | None = None,     # e.g. DECAY_K from your loop
+    eps_zero: float = 1e-6,                # “close-to-0” threshold for γ
+    eps_one:  float = 1e-3                 # “close-to-1” threshold for crit/rho
+):
+    """
+    Visualise the optimisation trace produced by `run_gd_gamma`.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame  (columns MUST include 'iteration', 'gamma'.
+                            Optional: 'criterion', 'rho', 'mse_penalty')
+    mse_weight : float     The weight you passed into the penalty criterion.
+    decay_interval : int   Iterations between step-size decays (None → don’t draw).
+    eps_zero : float       |γ| < eps_zero → treat as “≈ 0”.
+    eps_one  : float       |value − 1| < eps_one → treat as “≈ 1”.
+    """
+
+    iters = df["iteration"].to_numpy()
+
+    # ───────────────────────── Plot 1: γ trace ──────────────────────────
+    fig, ax = plt.subplots()
+    gamma = df["gamma"].to_numpy(dtype=float)
+    ax.plot(iters, gamma, label="γ")
+
+    # mark first NaN or near-zero γ
+    bad_idx = np.where(np.isnan(gamma) | (np.abs(gamma) < eps_zero))[0]
+    if bad_idx.size:
+        ax.axvline(iters[bad_idx[0]], color="red", lw=2,
+                   label="γ ≈ 0 or NaN")
+
+    # mark step-decay boundaries
+    if decay_interval is not None and decay_interval > 0:
+        for k in range(decay_interval, iters[-1] + 1, decay_interval):
+            ax.axvline(k, color="grey", ls=":", alpha=0.5,
+                       label="step-size decay" if k == decay_interval else None)
+
+    ax.set_xlabel("iteration")
+    ax.set_ylabel("γ")
+    ax.set_title("Trace of γ over iterations")
+    ax.legend(title=f"mse_weight = {mse_weight}")
+    ax.grid(True)
+
+    # ───────────────── Plot 2: criterion, ρ, MSE penalty ────────────────
+    fig2, ax2 = plt.subplots()
+
+    # plot whichever columns are present
+    plotted_cols = []
+    for col, lbl in (("criterion", "criterion"),
+                     ("rho",       "ρ"),
+                     ("mse_penalty", "MSE penalty")):
+        if col in df.columns:
+            ax2.plot(iters, df[col].to_numpy(dtype=float), label=lbl)
+            plotted_cols.append(col)
+
+    # mark NaN / near-1 in any of the plotted series
+    if plotted_cols:
+        stacked = np.vstack([df[c].to_numpy(dtype=float) for c in plotted_cols])
+        bad_idx2 = np.where(np.isnan(stacked).any(axis=0) |
+                            (np.abs(stacked - 1.0) < eps_one).any(axis=0))[0]
+        if bad_idx2.size:
+            ax2.axvline(iters[bad_idx2[0]], color="red", lw=2,
+                        label="≈ 1 or NaN")
+
+    if decay_interval is not None and decay_interval > 0:
+        for k in range(decay_interval, iters[-1] + 1, decay_interval):
+            ax2.axvline(k, color="grey", ls=":", alpha=0.5,
+                        label="step-size decay" if k == decay_interval else None)
+
+    ax2.set_xlabel("iteration")
+    ax2.set_ylabel("value")
+    ax2.set_title("Criterion, ρ and MSE penalty over iterations")
+    ax2.legend(title=f"mse_weight = {mse_weight}")
+    ax2.grid(True)
+
+        # looking at fit of final KRR
+    ## running KRR using the gd results
+    # using testing data set aside at beginning
+    gamma_gd = df["gamma"].tail(1).item()
+
+   # run KRR (make sure to pass your train/test sets correctly)
+    y_pred_jax = jnp.asarray(
+         KRR(
+          w=gamma_gd,
+          lam=lam_fixed,
+          x_train=x_train_first,
+          y_train=y_train_first,
+          x_test=x_test_first
+        )
+    )
+    # bring test labels into JAX, under a new name
+    y_test_jax = jnp.asarray(y_test_first)
+    final_mse = jnp.mean((y_pred_jax - y_test_jax) ** 2)
+
+    print(f"Final MSE: {final_mse}")
+
+    # plotting 
+    plt.figure()                       # new figure
+    plt.plot(x_test_first, y_test_first, 'o', label='True y', markersize=5)
+    plt.plot(x_test_first, y_pred_jax, 'o', label='Predicted y', markersize=5)
+    plt.xlabel('x_test')              # label axes
+    plt.ylabel('y')
+    plt.title('True Y vs KRR prediction on Test Set using RBF Kernel')
+    plt.legend(title=f'gamma = {gamma_gd:.3f}, λ = {lam_fixed:.3f}, mse = {final_mse:.5f})') 
+    plt.tight_layout()
+    plt.show()
+    plt.show()
+
+
+
+def plot_gamma_lambda_results(df):
+    # plot for looking at mse trace 
+    fig, ax = plt.subplots()
+    ax.plot(df["iteration"], df["criterion"])
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Rho with MSE Penalty")
+    ax.set_title(f"Criterion Trace")
+    plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1000') 
+    ax.grid(True)  # optional, but often helpful
+    plt.show()
+
+    # plot for looking at mse trace 
+    fig, ax = plt.subplots()
+    ax.plot(df["iteration"], df["lambda"])
+    ax.plot(df["iteration"], df["gamma"])
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Parameter Values")
+    ax.set_title(f"Trace of Parameters")
+    plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1000') 
+    ax.grid(True)  # optional, but often helpful
+    plt.show()
+
+    # assessing gradient blow up or NaN
+    finite = np.isfinite(df['criterion'])
+    last_good = df.loc[finite, 'iteration'].max()
+    print(f"Last finite criterion at iteration {last_good}")
+    print("Number of NaNs:", (~finite).sum())
+
+    # looking at fit of final KRR
+    ## running KRR using the gd results
+    # using testing data set aside at beginning
+    gamma_gd = df["gamma"].tail(1).item()
+    lam_gd = df["lambda"].tail(1).item()
+
+    y_pred = jnp.asarray(KRR(w = gamma_gd, lam = lam_gd, x_train = x_train_first, y_train = y_train_first, x_test = x_test_first)) # converting to numpy array
+    y_test_first = jnp.asarray(y_test_first)
+    final_mse = jnp.mean((y_pred - y_test_first)**2)
+
+    print(f"Final MSE: {final_mse}")
+
+    # plotting 
+    plt.figure()                       # new figure
+    plt.plot(x_test_first, y_test_first, 'o', label='True y', markersize=5)
+    plt.plot(x_test_first, y_pred, 'o', label='Predicted y', markersize=5)
+    plt.xlabel('x_test')              # label axes
+    plt.ylabel('y')
+    plt.title('True Y vs KRR prediction on Test Set using RBF Kernel')
+    plt.legend(title=f'gamma = {gamma_gd:.3f}, λ = {lam_gd:.3f}, mse = {final_mse:.5f})') 
+    plt.tight_layout()
+    plt.show()
+
+
+
+df1 = run_gd_gamma(
+    max_iter = 100, 
+    gamma_init = jnp.asarray(gamma_init, dtype=jnp.float32),
+    key = key_init,
+    mse_weight = 1, 
+    split_thresh=99999999
+)
+plot_run_gd_gamma(df = df1, mse_weight=1, decay_interval=decay_threshold)
+
