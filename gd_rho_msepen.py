@@ -28,14 +28,15 @@ key_init = jax.random.PRNGKey(51) # jax key for getting random permutation of co
 
 step_init = 1.0 # inital step size
 decay_rate = 0.5 # step size decay factor
-decay_threshold = 20 # number of iterations before decaying
+decay_threshold = 200 # number of iterations before decaying
 
 ###############################################################################################
 
 
 # loading in the data 
 df_experiment = pd.read_csv("test-functions.csv")
-y = df_experiment['y_smooth'] # using smooth cosine y 
+#y = df_experiment['y_smooth'] # using smooth cosine y 
+y = df_experiment['y_hfreq'] # high frequency, difficult y 
 x = df_experiment['x']
 
 
@@ -213,8 +214,9 @@ def calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse):
 # function for getting rho penalized by mse 
 def calc_pen_crit(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 0.5):
     rho = calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse)
+    #rho = 0.0
     nmse = calc_nmse_rbf(params, x_tr, x_val, y_tr, y_val)
-    return 0.5*rho + mse_weight*nmse
+    return rho + mse_weight*nmse
     
 
 # jit wrappers for functions 
@@ -258,22 +260,23 @@ def run_gd(max_iter, params_init, key, mse_weight, split_thresh = 1, step_style 
 
     # initial validation split
     x_tr, x_val, y_tr, y_val = get_validation_split()
-    x_fine = x
-    y_fine = y
 
     x_tr = jnp.asarray(x_tr, dtype = jnp.float32)
     y_tr = jnp.asarray(y_tr, dtype = jnp.float32)
     x_val = jnp.asarray(x_val, dtype = jnp.float32)
     y_val = jnp.asarray(y_val, dtype = jnp.float32) 
-    x_fine = jnp.asarray(x_fine, dtype=jnp.float32)
-    y_fine = jnp.asarray(y_fine, dtype=jnp.float32)
     
+    # x_fine is the same as x_tr
+    # it used to be different so this is a quick fix to make sure everything else still works
+    x_fine = x_tr
+    y_fine = y_tr
 
+    # selecting coarse subset from reduced training subset
     coarse_indices, key = get_coarse_indices(key=key, n_train = len(x_fine))
 
     # get the coarse subset for calculating rho 
-    x_coarse = x_fine[coarse_indices]
-    y_coarse = y_fine[coarse_indices]
+    x_coarse = x_tr[coarse_indices]
+    y_coarse = y_tr[coarse_indices]
 
     # ensure they are jnp arrays of specific float datatype
     x_coarse = jnp.asarray(x_coarse, dtype=jnp.float32)
@@ -283,7 +286,7 @@ def run_gd(max_iter, params_init, key, mse_weight, split_thresh = 1, step_style 
     traj[0,:] = jnp.asarray(params_init, dtype=jnp.float32)
     
     # calculate initial crit
-    init_crit = calc_pen_crit(params= params_init, x_fine=x_fine, x_coarse=x_coarse, y_fine = y_fine, y_coarse = y_coarse, x_tr = x_tr, x_val = x_val, y_tr = y_tr, y_val = y_val)
+    init_crit = calc_pen_crit(params= params_init, x_fine=x_fine, x_coarse=x_coarse, y_fine = y_tr, y_coarse = y_coarse, x_tr = x_tr, x_val = x_val, y_tr = y_tr, y_val = y_val)
     crit_trace[0] = init_crit
 
     for i in range(1, max_iter):
@@ -317,17 +320,16 @@ def run_gd(max_iter, params_init, key, mse_weight, split_thresh = 1, step_style 
     })
 
 
-lam_init = 50
-gamma_init = 5
+lam_init = 10
+gamma_init = 50
 desc_parameters_init = jnp.array([lam_init, gamma_init], dtype = jnp.float32)
-split_threshold = 5
 
 # running gradient descent algorithm
 df = run_gd(max_iter = 100,
        params_init = desc_parameters_init, 
        key = key_init, 
-       mse_weight = 0.5,  
-       split_thresh = 1,
+       mse_weight = 1.0,  
+       split_thresh = 99999999,
        step_style='fs',
        kernel = 'rbf'
        )   
@@ -340,7 +342,7 @@ ax.plot(df["iteration"], df["criterion"])
 ax.set_xlabel("Iteration")
 ax.set_ylabel("Rho with MSE Penalty")
 ax.set_title(f"Criterion Trace")
-plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1') 
+plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1000') 
 ax.grid(True)  # optional, but often helpful
 plt.show()
 
@@ -351,7 +353,7 @@ ax.plot(df["iteration"], df["gamma"])
 ax.set_xlabel("Iteration")
 ax.set_ylabel("Parameter Values")
 ax.set_title(f"Trace of Parameters")
-plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1') 
+plt.legend(title=f'initial gamma = {gamma_init:.1f}, initial λ = {lam_init:.1f}, split threshold = 1000') 
 ax.grid(True)  # optional, but often helpful
 plt.show()
 
