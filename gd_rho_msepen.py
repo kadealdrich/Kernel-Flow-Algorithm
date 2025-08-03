@@ -26,9 +26,9 @@ key_init = jax.random.PRNGKey(51) # jax key for getting random permutation of co
 
 ###############################################################################################
 
-step_init = 1.0 # inital step size
+step_init = 10.0 # inital step size
 decay_rate = 0.5 # step size decay factor
-decay_threshold = 50 # number of iterations before decaying
+decay_threshold = 200 # number of iterations before decaying
 lam_fixed = 10
 
 ###############################################################################################
@@ -169,7 +169,7 @@ def calc_nmse_rbf(params, x_tr, x_val, y_tr, y_val):
 
     return bounded_nmse
 
-
+## RBF / Gaussian Kernel
 # function for calculating rho criterion 
 def calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse):
     lam, gamma = params # two hyperparameters
@@ -183,6 +183,7 @@ def calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse):
     diffs_f = x_f[:, None] - x_f[None:,]
     diffs_c = x_c[:, None] - x_c[None:,]
 
+    # using L2-norm
     sqdf = jnp.square(diffs_f)
     sqdc = jnp.square(diffs_c)
 
@@ -210,6 +211,52 @@ def calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse):
     #print("rho=", rho, ", w=", w)
 
     return rho
+
+
+## Laplacian Kernel (L1 norm)
+# function for calculating rho criterion 
+def calc_rho_lapL1(params, x_fine, x_coarse, y_fine, y_coarse):
+    lam, sigma = params # two hyperparameters
+
+    # converting to jax numpy arrays 
+    x_f, x_c, y_f, y_c = map(jnp.asarray, (x_fine, x_coarse, y_fine, y_coarse))
+
+    ## constructing kernel Gram matrices
+
+    # calculating difference matrices
+    diffs_f = x_f[:, None] - x_f[None:,]
+    diffs_c = x_c[:, None] - x_c[None:,]
+
+    # using L1-norm
+    absdf = jnp.abs(diffs_f)
+    absdc = jnp.abs(diffs_c)
+
+    # constructing Laplacian kernel Gram matrices
+    Kf = jnp.exp(-absdf * sigma ** -1.0) # fine sample kernel Gram matrix
+    Kc = jnp.exp(-absdc * sigma ** -1.0) # coarse sample kernel Gram matrix
+
+    Kf_reg = Kf + lam * jnp.eye(len(x_fine)) # regularized kernel Gram matrices
+    Kc_reg = Kc + lam * jnp.eye(len(x_coarse))
+
+    # calculating rho 
+    # compute (Reg)^{-1} and then its square
+    inv_f = jnp.linalg.inv(Kf_reg)
+    inv_c = jnp.linalg.inv(Kc_reg)
+
+    Kf_inv2 = inv_f @ inv_f
+    Kc_inv2 = inv_c @ inv_c
+
+    # quadratic forms
+    N = y_c.T @ (Kc @ Kc_inv2) @ y_c # numerator
+    D = y_f.T @ (Kf @ Kf_inv2) @ y_f # denominator
+
+    # final rho
+    ### Not sure if should multiply by nf/nc or not 
+    rho = 1.0 - (N / D)
+    #print("rho=", rho, ", w=", w)
+
+    return rho
+
 
 
 # function for getting rho penalized by mse 
@@ -596,11 +643,10 @@ def plot_gamma_lambda_results(df):
 
 
 df1 = run_gd_gamma(
-    max_iter = 100, 
+    max_iter = 500, 
     gamma_init = jnp.asarray(gamma_init, dtype=jnp.float32),
     key = key_init,
     mse_weight = 1, 
     split_thresh=99999999
 )
 plot_run_gd_gamma(df = df1, mse_weight=1, decay_interval=decay_threshold)
-
