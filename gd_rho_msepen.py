@@ -137,32 +137,6 @@ def KRR_lapL1(sigma, lam, x_train, y_train, x_test):
 
 
 
-############## TESTING
-
-## Testing Laplaclian L1 kernel ridge regression implementation
-
-
-y_pred = jnp.asarray(KRR_lapL1(sigma = .025, lam = 10, x_train = x_train_first, y_train = y_train_first, x_test = x_test_first)) # converting to numpy array
-y_test_first = jnp.asarray(y_test_first)
-final_mse = jnp.mean((y_pred - y_test_first)**2)
-
-
-#plotting 
-plt.figure()                       # new figure
-plt.plot(x_test_first, y_test_first, 'o', label='True y', markersize=5)
-plt.plot(x_test_first, y_pred, 'o', label='Predicted y', markersize=5)
-plt.xlabel('x_test')              # label axes
-plt.ylabel('y')
-plt.title('True Y vs KRR prediction on Test Set using L1 Laplacian Kernel')
-plt.legend(title=f'sigma = {0.025}, λ = {10.0}, mse = {final_mse:.5f})') 
-plt.tight_layout()
-plt.show()
-
-print("TEST COMPLETE")
-print(" ")
-
-##############
-
 # function for calculating mean squared error of KRR prediction on validation data
 # uses global variables for test y values and predicted y values so that jax can be used for gradient calculation in the future
 # all the same as the KRR function except for it returns the prediction mean squared error
@@ -344,22 +318,39 @@ def calc_rho_lapL1(params, x_fine, x_coarse, y_fine, y_coarse):
 
 
 
-# function for getting rho penalized by mse 
+# function for getting rho penalized by mse using rbf kernel
 def calc_pen_crit(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 0.5):
     rho = calc_rho_rbf(params, x_fine, x_coarse, y_fine, y_coarse)
     #rho = 0.0
     nmse = calc_nmse_rbf(params, x_tr, x_val, y_tr, y_val)
     return rho + mse_weight*nmse
+
+# function for getting rho penalized by mse using Laplacian kernel
+def calc_pen_crit_lapL1(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 0.5):
+    rho = calc_rho_lapL1(params, x_fine, x_coarse, y_fine, y_coarse)
+    nmse = calc_nmse_rbf(params, x_tr, x_val, y_tr, y_val)
+    return rho + mse_weight*nmse
     
+
+# calculates rho criterion with mse penalty given gamma from the rbf kernel
 def pen_crit_gamma(gamma, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 0.5):
     params = (lam_fixed, gamma)
     return calc_pen_crit(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight)
 
+
+# calculates rho criterion with mse penalty given sigma from the Laplacian kernel
+def pen_crit_sigma_lapL1(sigma, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight = 0.5):
+    params = (lam_fixed, sigma)
+    return calc_pen_crit_lapL1(params, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr, y_val, mse_weight)
+
+
 # jit wrappers for functions 
 pen_crit_gamma_jit = jit(pen_crit_gamma)
-#calc_crit_rbf_jit = jit(calc_pen_crit)
+pen_crit_sigma_jit = jit(pen_crit_sigma_lapL1)
 value_and_grad = jit(jax.value_and_grad(pen_crit_gamma_jit, argnums=0))
+value_and_grad_lapL1 = jit(jax.value_and_grad(pen_crit_sigma_jit, argnums=0))
 KRR_rbf_jit = jit(KRR_rbf)
+KRR_lapL1_jit = jit(KRR_lapL1)
 
 
 # function for getting gradient step using rho criterion penalized by mse
@@ -492,7 +483,8 @@ desc_parameters_init = jnp.array([lam_init, gamma_init], dtype = jnp.float32)
 #       )   
 
 
-# gradient descent for only changing gamma
+## Gradient descent for only changing gamma
+# Gaussian kernel
 def run_gd_gamma(max_iter, gamma_init, key, mse_weight=0.5, split_thresh=1):
     traj = np.zeros(max_iter + 1, dtype=np.float32)
     loss_trace = np.zeros_like(traj)
@@ -548,6 +540,63 @@ def run_gd_gamma(max_iter, gamma_init, key, mse_weight=0.5, split_thresh=1):
                          "criterion": loss_trace})
 
 
+
+
+## Gradient descent for only changing gamma
+# Gaussian kernel
+def run_gd_sigma(max_iter, gamma_init, key, mse_weight=0.5, split_thresh=1):
+    traj = np.zeros(max_iter + 1, dtype=np.float32)
+    loss_trace = np.zeros_like(traj)
+
+    gamma = jnp.asarray(gamma_init, dtype=jnp.float32)
+    # do first split just once, jit takes care of device transfer
+    x_tr, x_val, y_tr, y_val = get_validation_split()
+
+    # converting to numpy arrays of float32 datatype
+    x_tr = jnp.asarray(x_tr, dtype = jnp.float32)
+    y_tr = jnp.asarray(y_tr, dtype = jnp.float32)
+    x_val = jnp.asarray(x_val, dtype = jnp.float32)
+    y_val = jnp.asarray(y_val, dtype = jnp.float32) 
+    
+    # x_fine is the same as x_tr
+    # it used to be different so this is a quick fix to make sure everything else still works
+    x_fine = x_tr
+    y_fine = y_tr
+
+
+    coarse_idx, key = get_coarse_indices(key, len(x_fine))
+    x_coarse, y_coarse = x_fine[coarse_idx], y_fine[coarse_idx]
+
+    # initial loss
+    loss_trace[0] = pen_crit_gamma_jit(gamma,
+                                       x_fine, x_coarse, y_fine, y_coarse,
+                                       x_tr,   x_val,    y_tr,   y_val,
+                                       mse_weight)
+    traj[0] = gamma
+
+    for i in range(1, max_iter + 1):
+        step = step_init * decay_rate ** (i // decay_threshold)
+        if i % split_thresh == 0:
+            # optional re-split / re-sample
+            x_tr, x_val, y_tr, y_val = get_validation_split()
+            x_tr = jnp.asarray(x_tr, dtype = jnp.float32)
+            y_tr = jnp.asarray(y_tr, dtype = jnp.float32)
+            x_val = jnp.asarray(x_val, dtype = jnp.float32)
+            y_val = jnp.asarray(y_val, dtype = jnp.float32) 
+            x_fine, y_fine = map(jnp.asarray, (x_tr, y_tr))
+            coarse_idx, key = get_coarse_indices(key, len(x_fine))
+            x_coarse, y_coarse = x_fine[coarse_idx], y_fine[coarse_idx]
+
+        gamma, loss = make_gd_step_gamma(gamma,
+                                    x_fine, x_coarse, y_fine, y_coarse,
+                                    x_tr,   x_val,    y_tr,   y_val,
+                                    mse_weight, step)
+        traj[i]       = gamma
+        loss_trace[i] = loss
+
+    return pd.DataFrame({"iteration": np.arange(max_iter+1),
+                         "gamma": traj,
+                         "criterion": loss_trace})
 
 
 #df.to_csv("gd_mse_pen.csv", index=False)
