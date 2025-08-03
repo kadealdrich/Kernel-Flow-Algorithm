@@ -76,7 +76,7 @@ def get_coarse_indices(key, n_train, coarse_prop = 0.5):
 
 # function for predicting unseen data using kernel ridge regression 
 # isolating this from calc_mse function above 
-def KRR(w, lam, x_train, y_train, x_test):
+def KRR_rbf(w, lam, x_train, y_train, x_test):
 
     # converting to numpy arrays
     x_train = jnp.asarray(x_train)
@@ -105,6 +105,63 @@ def KRR(w, lam, x_train, y_train, x_test):
 
     return y_pred 
 
+## Kernel ridge regression using Laplacian kernel with L1 norm
+def KRR_lapL1(sigma, lam, x_train, y_train, x_test):
+
+    # converting to numpy arrays
+    x_train = jnp.asarray(x_train)
+    y_train = jnp.asarray(y_train)
+    x_test  = jnp.asarray(x_test)
+
+    # calculating kernel gram matrix
+    train_diffs = x_train[:, None] - x_train[None, :]
+    train_absdf = jnp.abs(train_diffs)  # square diff matrix (nf, nf)
+    K_train = jnp.exp(-train_absdf * sigma ** -1) # kernel gram matrix of training data
+    K_train_reg = K_train + lam * jnp.eye(len(x_train), dtype = K_train.dtype)  # regularized kernel gram matrix 
+
+    # solving for the weights 
+    weights = solve(K_train_reg, y_train, assume_a = 'pos', lower = True) # positive definite and symmetric
+    # set argurments in solve for optimized solve: 
+    #   assume_a = 'pos', lower=True
+      
+    # sym_pos: sym mean symmetric, pos means positive definite --> jax uses Cholesky decomp which is fast and should help with numerical issues
+
+    # predicting unseen validation data
+    train_test_diffs = x_test[:, None] - x_train[None, :] # difference matrix between test and train matrices
+    abs_dists = jnp.abs(train_test_diffs)
+    K_test_train = jnp.exp(-abs_dists * sigma ** -1) # kernel gram matrix of the train2 and validation x's 
+
+    y_pred = K_test_train @ weights # KRR prediction of y validation
+
+    return y_pred 
+
+
+
+############## TESTING
+
+## Testing Laplaclian L1 kernel ridge regression implementation
+
+
+y_pred = jnp.asarray(KRR_lapL1(sigma = .025, lam = 10, x_train = x_train_first, y_train = y_train_first, x_test = x_test_first)) # converting to numpy array
+y_test_first = jnp.asarray(y_test_first)
+final_mse = jnp.mean((y_pred - y_test_first)**2)
+
+
+#plotting 
+plt.figure()                       # new figure
+plt.plot(x_test_first, y_test_first, 'o', label='True y', markersize=5)
+plt.plot(x_test_first, y_pred, 'o', label='Predicted y', markersize=5)
+plt.xlabel('x_test')              # label axes
+plt.ylabel('y')
+plt.title('True Y vs KRR prediction on Test Set using L1 Laplacian Kernel')
+plt.legend(title=f'sigma = {0.025}, λ = {10.0}, mse = {final_mse:.5f})') 
+plt.tight_layout()
+plt.show()
+
+print("TEST COMPLETE")
+print(" ")
+
+##############
 
 # function for calculating mean squared error of KRR prediction on validation data
 # uses global variables for test y values and predicted y values so that jax can be used for gradient calculation in the future
@@ -129,6 +186,34 @@ def calc_mse_rbf(params, x_tr, x_val, y_tr, y_val):
     train_test_diffs = x_val[:, None] - x_tr[None, :] # difference matrix between test and train matrices
     sq_dists = train_test_diffs**2
     K_test_train = jnp.exp(-gamma * sq_dists) # kernel gram matrix of the train2 and validation x's 
+
+    y_pred = K_test_train @ weights # KRR prediction of y validation
+
+    mse = jnp.mean((y_val - y_pred)**2) # calculate mean squared error of kernel ridge regression prediction
+    
+    return mse
+
+
+def calc_mse_lapL1(params, x_tr, x_val, y_tr, y_val):
+    lam, sigma = params # two hyperparameters
+
+    # convert to jax arrays
+    x_tr, x_val, y_tr, y_val = map(jnp.asarray, (x_tr, x_val, y_tr, y_val))
+    
+    # calculating kernel gram matrix
+    train_diffs = x_tr[:, None] - x_tr[None, :]
+    train_absdf = jnp.abs(train_diffs)  # square diff matrix (nf, nf)
+    K_train = jnp.exp(-train_absdf * sigma ** -1) # kernel gram matrix of training data
+    K_train_reg = K_train + lam * jnp.eye(len(x_tr))  # regularized kernel gram matrix 
+
+    # solving for the weights 
+    weights = solve(K_train_reg, y_tr, assume_a = 'pos', lower=True) # positive definite and symmetric  
+    # sym_pos: sym mean symmetric, pos means positive definite --> jax uses Cholesky decomp which is fast and should help with numerical issues
+
+    # predicting unseen validation data
+    train_test_diffs = x_val[:, None] - x_tr[None, :] # difference matrix between test and train matrices
+    abs_dists = train_test_diffs**2
+    K_test_train = jnp.exp(-abs_dists * sigma ** -1) # kernel gram matrix of the train2 and validation x's 
 
     y_pred = K_test_train @ weights # KRR prediction of y validation
 
@@ -274,7 +359,7 @@ def pen_crit_gamma(gamma, x_fine, x_coarse, y_fine, y_coarse, x_tr, x_val, y_tr,
 pen_crit_gamma_jit = jit(pen_crit_gamma)
 #calc_crit_rbf_jit = jit(calc_pen_crit)
 value_and_grad = jit(jax.value_and_grad(pen_crit_gamma_jit, argnums=0))
-KRR_jit = jit(KRR)
+KRR_rbf_jit = jit(KRR_rbf)
 
 
 # function for getting gradient step using rho criterion penalized by mse
@@ -561,7 +646,7 @@ def plot_run_gd_gamma(
 
    # run KRR (make sure to pass your train/test sets correctly)
     y_pred_jax = jnp.asarray(
-         KRR(
+         KRR_rbf(
           w=gamma_gd,
           lam=lam_fixed,
           x_train=x_train_first,
@@ -623,7 +708,7 @@ def plot_gamma_lambda_results(df):
     gamma_gd = df["gamma"].tail(1).item()
     lam_gd = df["lambda"].tail(1).item()
 
-    y_pred = jnp.asarray(KRR(w = gamma_gd, lam = lam_gd, x_train = x_train_first, y_train = y_train_first, x_test = x_test_first)) # converting to numpy array
+    y_pred = jnp.asarray(KRR_rbf(w = gamma_gd, lam = lam_gd, x_train = x_train_first, y_train = y_train_first, x_test = x_test_first)) # converting to numpy array
     y_test_first = jnp.asarray(y_test_first)
     final_mse = jnp.mean((y_pred - y_test_first)**2)
 

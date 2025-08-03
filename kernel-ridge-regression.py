@@ -117,7 +117,6 @@ KRR_pred = KRR(w = 4, lam = 100, x_train = X_1D, y_train = Y, x_test = x_validat
 # function for calculating mean squared error of KRR prediction on validation data
 # uses global variables for test y values and predicted y values so that jax can be used for gradient calculation in the future
 # all the same as the KRR function except for it returns the prediction mean squared error
-@jit
 def calc_mse(w):
     # calculating kernel gram matrix
     train_diffs = X_1D[:, None] - X_1D[None, :]
