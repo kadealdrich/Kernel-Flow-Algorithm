@@ -40,6 +40,7 @@ lam_fixed = 10
 lam_init = 10 # in case of updating lambda
 sigma_init = 0.25
 desc_parameters_init = jnp.array([lam_init, sigma_init], dtype = jnp.float32)
+MSE_WEIGHT = 0.5
 
 ###############################################################################################
 
@@ -391,8 +392,23 @@ def run_gd(max_iter, params_init, key, mse_weight, split_thresh = 1):
 #       )   
 
 
+
+# function for getting initial sigma via median heuristic
+def get_sig_init_med():
+    diffs = x_train_first[:, None] - x_train_first[None, :]
+    sig_init = 1/diffs # take reciprocal
+    return sig_init
+
+
+# function for getting initial sigma via random starts
+def random_start(mse_weight=MSE_WEIGHT):
+    #
+    pass
+
+
+
 # Gradient descent only on kernel parameter sigma
-def run_gd_sigma(max_iter, sigma_init, key, mse_weight=0.5, split_thresh=1):
+def run_gd_sigma(max_iter, sigma_init, key, mse_weight=MSE_WEIGHT, split_thresh=1):
     traj = np.zeros(max_iter + 1, dtype=np.float32)
     loss_trace = np.zeros_like(traj)
 
@@ -636,7 +652,3 @@ print("success")
 print("Plotting results:")
 plot_run_gd_sigma(df = df1, mse_weight=1, decay_interval=decay_threshold)
 print("Results printed")
-
-
-
-
